@@ -1,0 +1,425 @@
+use std::sync::LazyLock;
+
+use bevy::prelude::{EulerRot, Mat4, UVec3, Vec3};
+
+use super::chunk::BlockIndex;
+
+type BlockDescriptor = u8;
+type GridIndex = u8;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(u8)]
+pub enum Volume {
+    ZeroSixth,
+    OneSixth,
+    TwoSixth,
+    ThreeSixth,
+    FourSixth,
+    FiveSixth,
+    SixSixth,
+}
+
+impl TryFrom<u8> for Volume {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        [
+            Self::ZeroSixth,
+            Self::OneSixth,
+            Self::TwoSixth,
+            Self::ThreeSixth,
+            Self::FourSixth,
+            Self::FiveSixth,
+            Self::SixSixth,
+        ]
+        .get(value as usize)
+        .ok_or_else(|| ())
+        .map(|v| *v)
+    }
+}
+
+/// Cubes have 24 rotation combinations. One way to visualize it (and the way that this enum represents) is to
+/// understand that for all combinations to exist, any given face can be in any of the 4 possible rotations around their
+/// own axis, and can face any of the 6 directions (+x, -x, +y, -y, +z and -z).
+/// Meaning that there is 4*6 = 24 combinations.
+///
+/// Individual face rotations cannot have a normalized rotation representation that doesn't depend on which direction
+/// it's facing.
+/// Consider a cube pattern made of paper.
+/// Often, the top and bottom faces are perpendicular to the 4 other faces that represent the side faces.
+/// Any cube pattern should have at least 2 perpendicular faces like that.
+/// Those 2 faces rotation system won't be the same depending on where they are placed relative to the other 4 faces.
+/// Which is why we have to make a choice about said system.
+///
+/// Once we think about paper cube patterns, the less arbitrary rotation system, once mapped to a cube pattern,
+/// would look like this:
+///
+/// ┌────────┐
+/// │        │
+/// │  Top   │
+/// │        │
+/// ├────────┼────────┬────────┬────────┐
+/// │        │        │        │        │
+/// │  West  │ North  │  East  │ South  │
+/// │        │        │        │        │
+/// ├────────┼────────┴────────┴────────┘
+/// │        │
+/// │ Bottom │
+/// │        │
+/// └────────┘
+///
+/// Sides being part of the same band/rotation system as it makes the most sense to me, and North being the first square
+/// because I like the idea.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(u8)]
+pub enum Rotation {
+    FacingNorth0Degrees,
+    FacingNorth90Degrees,
+    FacingNorth180Degrees,
+    FacingNorth270Degrees,
+    FacingEast0Degrees,
+    FacingEast90Degrees,
+    FacingEast180Degrees,
+    FacingEast270Degrees,
+    FacingSouth0Degrees,
+    FacingSouth90Degrees,
+    FacingSouth180Degrees,
+    FacingSouth270Degrees,
+    FacingWest0Degrees,
+    FacingWest90Degrees,
+    FacingWest180Degrees,
+    FacingWest270Degrees,
+    FacingTop0Degrees,
+    FacingTop90Degrees,
+    FacingTop180Degrees,
+    FacingTop270Degrees,
+    FacingBottom0Degrees,
+    FacingBottom90Degrees,
+    FacingBottom180Degrees,
+    FacingBottom270Degrees,
+}
+
+impl TryFrom<u8> for Rotation {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        [
+            Self::FacingNorth0Degrees,
+            Self::FacingNorth90Degrees,
+            Self::FacingNorth180Degrees,
+            Self::FacingNorth270Degrees,
+            Self::FacingEast0Degrees,
+            Self::FacingEast90Degrees,
+            Self::FacingEast180Degrees,
+            Self::FacingEast270Degrees,
+            Self::FacingSouth0Degrees,
+            Self::FacingSouth90Degrees,
+            Self::FacingSouth180Degrees,
+            Self::FacingSouth270Degrees,
+            Self::FacingWest0Degrees,
+            Self::FacingWest90Degrees,
+            Self::FacingWest180Degrees,
+            Self::FacingWest270Degrees,
+            Self::FacingTop0Degrees,
+            Self::FacingTop90Degrees,
+            Self::FacingTop180Degrees,
+            Self::FacingTop270Degrees,
+            Self::FacingBottom0Degrees,
+            Self::FacingBottom90Degrees,
+            Self::FacingBottom180Degrees,
+            Self::FacingBottom270Degrees,
+        ]
+        .get(value as usize)
+        .ok_or_else(|| ())
+        .map(|v| *v)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Shape {
+    pub rotation: Rotation,
+    pub volume: Volume,
+}
+
+impl Shape {
+    pub const EMPTY: Self = Self {
+        rotation: Rotation::FacingNorth0Degrees,
+        volume: Volume::ZeroSixth,
+    };
+
+    pub fn new(rotation: Rotation, volume: Volume) -> Self {
+        Self { rotation, volume }
+    }
+
+    pub fn to_shape_descriptor(&self) -> BlockDescriptor {
+        (self.volume as u8) << 5 | self.rotation as u8
+    }
+
+    pub fn to_grid_index(&self) -> GridIndex {
+        SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP[self.to_shape_descriptor() as usize]
+    }
+}
+
+pub static VERTEX_LIST: [UVec3; 8] = [
+    UVec3::new(0, 0, 0),
+    UVec3::new(1, 0, 0),
+    UVec3::new(1, 0, 1),
+    UVec3::new(0, 0, 1),
+    UVec3::new(0, 1, 0),
+    UVec3::new(1, 1, 0),
+    UVec3::new(1, 1, 1),
+    UVec3::new(0, 1, 1),
+];
+
+pub static ZERO_SIXTH_VERTEX_LIST: LazyLock<Vec<UVec3>> = LazyLock::new(|| vec![]);
+static ZERO_SIXTH_INTERIOR_VERTICES: LazyLock<Vec<[UVec3; 3]>> = LazyLock::new(|| vec![]);
+
+pub static ONE_SIXTH_VERTEX_LIST: LazyLock<Vec<UVec3>> = LazyLock::new(|| {
+    vec![
+        UVec3::new(0, 0, 0),
+        UVec3::new(1, 0, 0),
+        UVec3::new(0, 0, 1),
+        UVec3::new(0, 1, 0),
+    ]
+});
+
+static ONE_SIXTH_INTERIOR_VERTICES: LazyLock<Vec<[UVec3; 3]>> = LazyLock::new(|| {
+    vec![[
+        UVec3::new(0, 1, 0),
+        UVec3::new(0, 0, 1),
+        UVec3::new(1, 0, 0),
+    ]]
+});
+
+pub static TWO_SIXTH_VERTEX_LIST: LazyLock<Vec<UVec3>> = LazyLock::new(|| {
+    vec![
+        UVec3::new(0, 0, 0),
+        UVec3::new(1, 0, 0),
+        UVec3::new(1, 0, 1),
+        UVec3::new(0, 0, 1),
+        UVec3::new(0, 1, 0),
+    ]
+});
+
+static TWO_SIXTH_INTERIOR_VERTICES: LazyLock<Vec<[UVec3; 3]>> = LazyLock::new(|| {
+    vec![
+        [
+            UVec3::new(0, 1, 0),
+            UVec3::new(1, 0, 1),
+            UVec3::new(1, 0, 0),
+        ],
+        [
+            UVec3::new(0, 1, 0),
+            UVec3::new(0, 0, 1),
+            UVec3::new(1, 0, 1),
+        ],
+    ]
+});
+
+pub static THREE_SIXTH_VERTEX_LIST: LazyLock<Vec<UVec3>> = LazyLock::new(|| {
+    vec![
+        UVec3::new(0, 0, 0),
+        UVec3::new(1, 0, 0),
+        UVec3::new(1, 0, 1),
+        UVec3::new(0, 0, 1),
+        UVec3::new(0, 1, 0),
+        UVec3::new(1, 1, 0),
+    ]
+});
+
+static THREE_SIXTH_INTERIOR_VERTICES: LazyLock<Vec<[UVec3; 3]>> = LazyLock::new(|| {
+    vec![
+        [
+            UVec3::new(0, 1, 0),
+            UVec3::new(0, 0, 1),
+            UVec3::new(1, 0, 1),
+        ],
+        [
+            UVec3::new(0, 1, 0),
+            UVec3::new(1, 0, 1),
+            UVec3::new(1, 1, 0),
+        ],
+    ]
+});
+
+pub static FOUR_SIXTH_VERTEX_LIST: LazyLock<Vec<UVec3>> = LazyLock::new(|| {
+    vec![
+        UVec3::new(0, 0, 0),
+        UVec3::new(1, 0, 0),
+        UVec3::new(1, 0, 1),
+        UVec3::new(0, 0, 1),
+        UVec3::new(0, 1, 0),
+        UVec3::new(1, 1, 0),
+        UVec3::new(0, 1, 1),
+    ]
+});
+
+static FOUR_SIXTH_INTERIOR_VERTICES: LazyLock<Vec<[UVec3; 3]>> = LazyLock::new(|| {
+    vec![
+        [
+            UVec3::new(1, 1, 0),
+            UVec3::new(0, 1, 1),
+            UVec3::new(0, 0, 1),
+        ],
+        [
+            UVec3::new(1, 1, 0),
+            UVec3::new(0, 0, 1),
+            UVec3::new(1, 0, 1),
+        ],
+    ]
+});
+
+pub static FIVE_SIXTH_VERTEX_LIST: LazyLock<Vec<UVec3>> = LazyLock::new(|| {
+    vec![
+        UVec3::new(0, 0, 0),
+        UVec3::new(1, 0, 0),
+        UVec3::new(1, 0, 1),
+        UVec3::new(0, 0, 1),
+        UVec3::new(0, 1, 0),
+        UVec3::new(1, 1, 0),
+        UVec3::new(0, 1, 1),
+    ]
+});
+
+static FIVE_SIXTH_INTERIOR_VERTICES: LazyLock<Vec<[UVec3; 3]>> = LazyLock::new(|| {
+    vec![[
+        UVec3::new(1, 1, 0),
+        UVec3::new(0, 1, 1),
+        UVec3::new(1, 0, 1),
+    ]]
+});
+
+pub static SIX_SIXTH_VERTEX_LIST: LazyLock<Vec<UVec3>> = LazyLock::new(|| {
+    vec![
+        UVec3::new(0, 0, 0),
+        UVec3::new(1, 0, 0),
+        UVec3::new(1, 0, 1),
+        UVec3::new(0, 0, 1),
+        UVec3::new(0, 1, 0),
+        UVec3::new(1, 1, 0),
+        UVec3::new(1, 1, 1),
+        UVec3::new(0, 1, 1),
+    ]
+});
+
+static SIX_SIXTH_INTERIOR_VERTICES: LazyLock<Vec<[UVec3; 3]>> = LazyLock::new(|| vec![]);
+
+pub fn vertex_to_index(vertex: UVec3) -> usize {
+    VERTEX_LIST.iter().position(|&v| v == vertex).unwrap()
+}
+
+pub static SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP: LazyLock<[Vec<[UVec3; 3]>; 256]> =
+    LazyLock::new(|| {
+        let mut map: [Vec<[UVec3; 3]>; 256] = [(); 256].map(|_| vec![]);
+        let facing_rotations = [
+            Vec3::new(0.0, 0.0, 0.0),                     // North
+            Vec3::new(0.0, -90.0_f32.to_radians(), 0.0),  // East
+            Vec3::new(0.0, -180.0_f32.to_radians(), 0.0), // South
+            Vec3::new(0.0, -270.0_f32.to_radians(), 0.0), // West
+            Vec3::new(0.0, 0.0, 90.0_f32.to_radians()),   // Top
+            Vec3::new(0.0, 0.0, -90.0_f32.to_radians()),  // Bottom
+        ];
+        // Angles are negative as the angle describes the angle seen when facing the cube from the outside, not the inside
+        let face_rotations = [
+            Vec3::new(0.0, 0.0, 0.0),                     // 0 degrees
+            Vec3::new(-90.0_f32.to_radians(), 0.0, 0.0),  // 90 degrees
+            Vec3::new(-180.0_f32.to_radians(), 0.0, 0.0), // 180 degrees
+            Vec3::new(-270.0_f32.to_radians(), 0.0, 0.0), // 270 degrees
+        ];
+
+        for (shape_index, shape) in [
+            &ZERO_SIXTH_INTERIOR_VERTICES,
+            &ONE_SIXTH_INTERIOR_VERTICES,
+            &TWO_SIXTH_INTERIOR_VERTICES,
+            &THREE_SIXTH_INTERIOR_VERTICES,
+            &FOUR_SIXTH_INTERIOR_VERTICES,
+            &FIVE_SIXTH_INTERIOR_VERTICES,
+        ]
+        .iter()
+        .enumerate()
+        {
+            for (facing_rotation_index, facing_rotation) in facing_rotations.iter().enumerate() {
+                for (face_rotation_index, face_rotation) in face_rotations.iter().enumerate() {
+                    let rotation = *facing_rotation + *face_rotation;
+                    let rot = Mat4::from_euler(EulerRot::XYZ, rotation.x, rotation.y, rotation.z);
+                    let rotated_vertices = shape
+                        .iter()
+                        .map(|triangle| {
+                            triangle
+                                .iter()
+                                .map(|vertex| {
+                                    let center_at_origin =
+                                        vertex.as_vec3() - Vec3::new(0.5, 0.5, 0.5);
+                                    let rotated = rot.transform_vector3(center_at_origin);
+                                    (rotated + Vec3::new(0.5, 0.5, 0.5)).round().as_uvec3()
+                                })
+                                .collect::<Vec<UVec3>>()
+                                .try_into()
+                                .unwrap()
+                        })
+                        .collect::<Vec<[UVec3; 3]>>();
+
+                    let index =
+                        (facing_rotation_index * 4 + face_rotation_index) | (shape_index << 5);
+                    map[index] = rotated_vertices;
+                }
+            }
+        }
+
+        map
+    });
+
+pub static SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP: LazyLock<[BlockIndex; 256]> = LazyLock::new(|| {
+    let mut map: [BlockIndex; 256] = [0; 256];
+    let facing_rotations = [
+        Vec3::new(0.0, 0.0, 0.0),                     // North
+        Vec3::new(0.0, -90.0_f32.to_radians(), 0.0),  // East
+        Vec3::new(0.0, -180.0_f32.to_radians(), 0.0), // South
+        Vec3::new(0.0, -270.0_f32.to_radians(), 0.0), // West
+        Vec3::new(0.0, 0.0, 90.0_f32.to_radians()),   // Top
+        Vec3::new(0.0, 0.0, -90.0_f32.to_radians()),  // Bottom
+    ];
+    // Angles are negative as the angle describes the angle seen when facing the cube from the outside, not the inside
+    let face_rotations = [
+        Vec3::new(0.0, 0.0, 0.0),                     // 0 degrees
+        Vec3::new(-90.0_f32.to_radians(), 0.0, 0.0),  // 90 degrees
+        Vec3::new(-180.0_f32.to_radians(), 0.0, 0.0), // 180 degrees
+        Vec3::new(-270.0_f32.to_radians(), 0.0, 0.0), // 270 degrees
+    ];
+
+    for (shape_index, shape) in [
+        &ZERO_SIXTH_VERTEX_LIST,
+        &ONE_SIXTH_VERTEX_LIST,
+        &TWO_SIXTH_VERTEX_LIST,
+        &THREE_SIXTH_VERTEX_LIST,
+        &FOUR_SIXTH_VERTEX_LIST,
+        &FIVE_SIXTH_VERTEX_LIST,
+        &SIX_SIXTH_VERTEX_LIST,
+    ]
+    .iter()
+    .enumerate()
+    {
+        for (facing_rotation_index, facing_rotation) in facing_rotations.iter().enumerate() {
+            for (face_rotation_index, face_rotation) in face_rotations.iter().enumerate() {
+                let rotation = *facing_rotation + *face_rotation;
+                let rot = Mat4::from_euler(EulerRot::XYZ, rotation.x, rotation.y, rotation.z);
+                let rotated_vertices = shape
+                    .iter()
+                    .map(|vertex| {
+                        let center_at_origin = vertex.as_vec3() - Vec3::new(0.5, 0.5, 0.5);
+                        let rotated = rot.transform_vector3(center_at_origin);
+                        (rotated + Vec3::new(0.5, 0.5, 0.5)).round().as_uvec3()
+                    })
+                    .collect::<Vec<UVec3>>();
+                let block_index = rotated_vertices
+                    .iter()
+                    .fold(0, |acc, vertex| acc | (1 << vertex_to_index(*vertex)));
+
+                let index = (facing_rotation_index * 4 + face_rotation_index) | (shape_index << 5);
+                map[index] = block_index;
+            }
+        }
+    }
+
+    map
+});

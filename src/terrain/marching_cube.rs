@@ -32,7 +32,7 @@ pub const VALID_BOTTOM_FACES: [u8; 6] = [
 ];
 
 // Towards +x
-pub const WEST_FACE_FACE: u8 = 0b0110_0110;
+pub const WEST_FACE_MASK: u8 = 0b0110_0110;
 pub const VALID_WEST_FACES: [u8; 6] = [
     0b0000_0000,
     0b0110_0110,

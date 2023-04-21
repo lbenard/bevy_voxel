@@ -1,0 +1,1 @@
+- "What happened last time" popup at the game load showing stats of what you did the last time you played (items collected, monsters killed, distance travelled, ...)

@@ -17,10 +17,15 @@ use terrain::{
     marching_cube::INDEX_LOOKUP,
 };
 
+use crate::terrain::block::SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP;
+
 mod terrain;
 
 #[bevy_main]
 fn main() {
+    let shape = Shape::new(Rotation::FacingNorth0Degrees, Volume::SixSixth).to_shape_descriptor();
+    // println!("shape descriptor {:#10b} {}", shape, shape);
+    // println!("{:#18b}", SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape as usize]);
     let mut app = App::new();
     app.insert_resource(WindowDescriptor {
         width: 1920.0,
@@ -59,61 +64,61 @@ fn debug_setup(
     material.metallic = 0.0;
     material.reflectance = 0.0;
 
-    for (volume_index, volume) in [
-        Volume::OneSixth,
-        Volume::TwoSixth,
-        Volume::ThreeSixth,
-        Volume::FourSixth,
-        Volume::FiveSixth,
-    ]
-    .iter()
-    .enumerate()
-    {
-        for (rotation_index, rotation) in [
-            Rotation::FacingNorth0Degrees,
-            Rotation::FacingEast0Degrees,
-            Rotation::FacingSouth0Degrees,
-            Rotation::FacingWest0Degrees,
-        ]
-        .iter()
-        .enumerate()
-        {
-            mesher.add_vertices_at_pos(
-                &SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP
-                    [Shape::new(*rotation, *volume).to_shape_descriptor() as usize],
-                UVec3 {
-                    x: rotation_index as u32,
-                    y: 0,
-                    z: volume_index as u32 * 2,
-                },
-            );
+    // for (volume_index, volume) in [
+    //     Volume::OneSixth,
+    //     Volume::TwoSixth,
+    //     Volume::ThreeSixth,
+    //     Volume::FourSixth,
+    //     Volume::FiveSixth,
+    // ]
+    // .iter()
+    // .enumerate()
+    // {
+    //     for (rotation_index, rotation) in [
+    //         Rotation::FacingNorth0Degrees,
+    //         Rotation::FacingEast0Degrees,
+    //         Rotation::FacingSouth0Degrees,
+    //         Rotation::FacingWest0Degrees,
+    //     ]
+    //     .iter()
+    //     .enumerate()
+    //     {
+    //         mesher.add_vertices_at_pos(
+    //             &SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP
+    //                 [Shape::new(*rotation, *volume).to_shape_descriptor() as usize],
+    //             UVec3 {
+    //                 x: rotation_index as u32,
+    //                 y: 0,
+    //                 z: volume_index as u32 * 2,
+    //             },
+    //         );
 
-            // debug sphere magic
-            commands
-                .spawn_bundle(PbrBundle {
-                    mesh: meshes.add(render::mesh::Mesh::from(shape::Icosphere {
-                        radius: 0.2,
-                        subdivisions: 1,
-                    })),
-                    material: materials.add(material.clone()),
-                    transform: Transform::from_xyz(
-                        rotation_index as f32,
-                        0.0,
-                        volume_index as f32 * 2.0,
-                    ),
-                    ..default()
-                })
-                .insert(DebugComponent);
-        }
-    }
+    //         // debug sphere magic
+    //         commands
+    //             .spawn_bundle(PbrBundle {
+    //                 mesh: meshes.add(render::mesh::Mesh::from(shape::Icosphere {
+    //                     radius: 0.2,
+    //                     subdivisions: 1,
+    //                 })),
+    //                 material: materials.add(material.clone()),
+    //                 transform: Transform::from_xyz(
+    //                     rotation_index as f32,
+    //                     0.0,
+    //                     volume_index as f32 * 2.0,
+    //                 ),
+    //                 ..default()
+    //             })
+    //             .insert(DebugComponent);
+    //     }
+    // }
 
-    let mesh = mesher.mesh();
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(mesh),
-        material: materials.add(material.clone()),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..default()
-    });
+    // let mesh = mesher.mesh();
+    // commands.spawn_bundle(PbrBundle {
+    //     mesh: meshes.add(mesh),
+    //     material: materials.add(material.clone()),
+    //     transform: Transform::from_xyz(0.0, 0.0, 0.0),
+    //     ..default()
+    // });
 }
 
 fn terrain_setup(
@@ -160,10 +165,21 @@ fn terrain_setup(
                 subdivisions: 1,
             })),
             material: materials.add(material.clone()),
-            transform: Transform::from_xyz(31.0, 75.0, 47.0),
+            transform: Transform::from_xyz(25.0, 44.0, 3.0),
             ..default()
         })
         .insert(DebugComponent);
+    commands
+    .spawn_bundle(PbrBundle {
+        mesh: meshes.add(render::mesh::Mesh::from(shape::Icosphere {
+            radius: 0.2,
+            subdivisions: 1,
+        })),
+        material: materials.add(material.clone()),
+        transform: Transform::from_xyz(21.0, 45.0, 0.0),
+        ..default()
+    })
+    .insert(DebugComponent);
 }
 
 fn env_setup(mut commands: Commands) {

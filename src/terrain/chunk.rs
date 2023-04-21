@@ -4,7 +4,7 @@ use std::mem::transmute;
 use crate::terrain::block::Shape;
 
 use super::{
-    block::{SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP, SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP},
+    block::{SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP, SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP, SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP, Rotation, Volume},
     generator::ChunkGenerator,
     marching_cube::{
         BLOCK_INDEX_TO_SHAPE_MAP, BOTTOM_FACE_MASK, NORTH_FACE_MASK, SOUTH_FACE_MASK,
@@ -52,83 +52,207 @@ impl Mesher {
                         &SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP[shape_descriptor as usize];
                     self.add_vertices_at_pos(tris, pos);
 
+                    // Bottom
+                    {
+                        let flag = SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape_descriptor as usize] & 0b1111;
+                        let bottom_shape_descriptor = if y == 0 {
+                            Shape::new(Rotation::FacingNorth0Degrees, Volume::SixSixth).to_shape_descriptor() // pretend it's a full block so bottom of the chunks doesn't get rendered
+                        } else {
+                            let idx = grid.index_at_pos(pos - UVec3 { x: 0, y: 1, z: 0 });
+                            let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
+                            shape.to_shape_descriptor()
+                        };
+                        let bottom_flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[bottom_shape_descriptor as usize] & 0b1111_0000) >> 4;
+
+                        let result_flag = if flag == 0 { bottom_flag } else { !flag & bottom_flag };
+
+                        let result = Self::get_middle_flag_corner(result_flag);
+                        self.add_vertices_at_pos(&match result {
+                            0b1111 => 
+                                vec![
+                                    [
+                                        UVec3 { x: 0, y: 0, z: 0 },
+                                        UVec3 { x: 0, y: 0, z: 1 },
+                                        UVec3 { x: 1, y: 0, z: 1 },
+                                    ],
+                                    [
+                                        UVec3 { x: 0, y: 0, z: 0 },
+                                        UVec3 { x: 1, y: 0, z: 1 },
+                                        UVec3 { x: 1, y: 0, z: 0 },
+                                    ],
+                                ]
+                            ,
+                            0b0100 => 
+                                vec![[
+                                    UVec3 { x: 1, y: 0, z: 1 },
+                                    UVec3 { x: 1, y: 0, z: 0 },
+                                    UVec3 { x: 0, y: 0, z: 1 },
+                                ]],
+                            0b1000 => 
+                                vec![[
+                                    UVec3 { x: 1, y: 0, z: 0 },
+                                    UVec3 { x: 0, y: 0, z: 0 },
+                                    UVec3 { x: 1, y: 0, z: 1 },
+                                ]],
+                            0b0001 => 
+                                vec![[
+                                    UVec3 { x: 0, y: 0, z: 0 },
+                                    UVec3 { x: 0, y: 0, z: 1 },
+                                    UVec3 { x: 1, y: 0, z: 0 },
+                                ]],
+                            0b0010 => 
+                                vec![[
+                                    UVec3 { x: 0, y: 0, z: 1 },
+                                    UVec3 { x: 1, y: 0, z: 1 },
+                                    UVec3 { x: 0, y: 0, z: 0 },
+                                ]],
+                            _ => vec![]
+                        }, pos);
+                    }
+
+                    if x == 0 && y == 0 && z == 0 {
+                        let shape = &BLOCK_INDEX_TO_SHAPE_MAP[0b1111_1000_usize];
+                        println!("{:?}", shape);
+                        let shape_descriptor = shape.to_shape_descriptor();
+                        let flag = SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape_descriptor as usize];
+                        println!("upside down flag {:#18b}", (flag & 0b1111_0000) >> 4)
+                    }
+
                     // Top
                     {
-                        let idx_mask = idx & TOP_FACE_MASK;
-                        let top_idx = if y == grid.size.y - 1 {
-                            0
+                        let flag = SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape_descriptor as usize] & 0b1111;
+                        let top_shape_descriptor = if y == grid.size.y - 1 {
+                            Shape::new(Rotation::FacingNorth0Degrees, Volume::ZeroSixth).to_shape_descriptor() // pretend it's a full block so top of the chunks doesn't get rendered
                         } else {
                             let idx = grid.index_at_pos(pos + UVec3 { x: 0, y: 1, z: 0 });
                             let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
-                            SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP
-                                [shape.to_shape_descriptor() as usize]
+                            shape.to_shape_descriptor()
                         };
-                        let top_idx_mask = (top_idx & BOTTOM_FACE_MASK) << 4;
-                        if top_idx_mask != TOP_FACE_MASK
-                            && VALID_TOP_FACES.contains(&top_idx_mask)
-                            && VALID_TOP_FACES.contains(&idx_mask)
-                        {
-                            let face_idx = idx_mask & !top_idx_mask;
-                            self.add_vertices_at_pos(
-                                &Y_EXTERIOR_FACE_LOOKUP[face_idx as usize],
-                                pos,
-                            );
-                        }
-                    }
-                    // Bottom
-                    {
-                        let idx_mask = idx & BOTTOM_FACE_MASK;
-                        let bottom_idx = if y == 0 {
-                            0b1111_1111 // pretend it's a full block so bottom of the chunks doesn't get rendered
-                        } else {
-                            let idx = grid.index_at_pos(pos - UVec3 { x: 0, y: 1, z: 0 });
-                            let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
-                            SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP
-                                [shape.to_shape_descriptor() as usize]
-                        };
-                        let bottom_idx_mask = (bottom_idx & TOP_FACE_MASK) >> 4;
-                        if bottom_idx_mask != BOTTOM_FACE_MASK
-                            && VALID_BOTTOM_FACES.contains(&bottom_idx_mask)
-                            && VALID_BOTTOM_FACES.contains(&idx_mask)
-                        {
-                            let face_idx = idx_mask & !bottom_idx_mask;
-                            if x == 31 && y == 75 && z == 47 {
-                                println!("shape: {:?}", shape);
-                                println!("idx_mask: {:#10b}", idx_mask);
-                                println!("bottom_idx_mask: {:#10b}", bottom_idx_mask);
-                                println!("face_idx: {:#10b}", face_idx);
-                                println!("face_idx: {}", face_idx);
-                            }
-                            self.add_vertices_at_pos(
-                                &Y_EXTERIOR_FACE_LOOKUP[face_idx as usize],
-                                pos,
-                            );
-                        }
+                        let top_flag = SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[top_shape_descriptor as usize] & 0b1111;
+
+                        let result_flag = if flag == 0 { top_flag } else { !flag & top_flag };
+
+                        let result = Self::get_middle_flag_corner(result_flag);
+                        self.add_vertices_at_pos(&match result {
+                            0b1111 => 
+                                vec![
+                                    [
+                                        UVec3 { x: 0, y: 1, z: 0 },
+                                        UVec3 { x: 1, y: 1, z: 1 },
+                                        UVec3 { x: 0, y: 1, z: 1 },
+                                    ],
+                                    [
+                                        UVec3 { x: 0, y: 1, z: 0 },
+                                        UVec3 { x: 1, y: 1, z: 0 },
+                                        UVec3 { x: 1, y: 1, z: 1 },
+                                    ],
+                                ]
+                            ,
+                            0b0100 => 
+                                vec![[
+                                    UVec3 { x: 1, y: 1, z: 1 },
+                                    UVec3 { x: 0, y: 1, z: 1 },
+                                    UVec3 { x: 1, y: 1, z: 0 },
+                                ]],
+                            0b1000 => 
+                                vec![[
+                                    UVec3 { x: 1, y: 1, z: 0 },
+                                    UVec3 { x: 1, y: 1, z: 1 },
+                                    UVec3 { x: 0, y: 1, z: 0 },
+                                ]],
+                            0b0001 => 
+                                vec![[
+                                    UVec3 { x: 0, y: 1, z: 0 },
+                                    UVec3 { x: 1, y: 1, z: 0 },
+                                    UVec3 { x: 0, y: 1, z: 1 },
+                                ]],
+                            0b0010 => 
+                                vec![[
+                                    UVec3 { x: 0, y: 1, z: 1 },
+                                    UVec3 { x: 0, y: 1, z: 0 },
+                                    UVec3 { x: 1, y: 1, z: 1 },
+                                ]],
+                            _ => vec![]
+                        }, pos);
                     }
 
+                    // Top
+                    // {
+                    //     let idx_mask = idx & TOP_FACE_MASK;
+                    //     let top_idx = if y == grid.size.y - 1 {
+                    //         0
+                    //     } else {
+                    //         let idx = grid.index_at_pos(pos + UVec3 { x: 0, y: 1, z: 0 });
+                    //         let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
+                    //         SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP
+                    //             [shape.to_shape_descriptor() as usize]
+                    //     };
+                    //     let top_idx_mask = (top_idx & BOTTOM_FACE_MASK) << 4;
+                    //     if top_idx_mask != TOP_FACE_MASK
+                    //         && VALID_TOP_FACES.contains(&top_idx_mask)
+                    //         && VALID_TOP_FACES.contains(&idx_mask)
+                    //     {
+                    //         let face_idx = idx_mask & !top_idx_mask;
+                    //         self.add_vertices_at_pos(
+                    //             &Y_EXTERIOR_FACE_LOOKUP[face_idx as usize],
+                    //             pos,
+                    //         );
+                    //     }
+                    // }
+                    // Bottom
+                    // {
+                    //     let idx_mask = idx & BOTTOM_FACE_MASK;
+                        // let bottom_idx = if y == 0 {
+                        //     0b1111_1111 // pretend it's a full block so bottom of the chunks doesn't get rendered
+                        // } else {
+                        //     let idx = grid.index_at_pos(pos - UVec3 { x: 0, y: 1, z: 0 });
+                        //     let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
+                        //     SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP
+                        //         [shape.to_shape_descriptor() as usize]
+                        // };
+                    //     let bottom_idx_mask = (bottom_idx & TOP_FACE_MASK) >> 4;
+                    //     if bottom_idx_mask != BOTTOM_FACE_MASK
+                    //         && VALID_BOTTOM_FACES.contains(&bottom_idx_mask)
+                    //         && VALID_BOTTOM_FACES.contains(&idx_mask)
+                    //     {
+                    //         let face_idx = idx_mask & !bottom_idx_mask;
+                    //         if x == 31 && y == 75 && z == 47 {
+                    //             println!("shape: {:?}", shape);
+                    //             println!("idx_mask: {:#10b}", idx_mask);
+                    //             println!("bottom_idx_mask: {:#10b}", bottom_idx_mask);
+                    //             println!("face_idx: {:#10b}", face_idx);
+                    //             println!("face_idx: {}", face_idx);
+                    //         }
+                    //         self.add_vertices_at_pos(
+                    //             &Y_EXTERIOR_FACE_LOOKUP[face_idx as usize],
+                    //             pos,
+                    //         );
+                    //     }
+                    // }
+
                     // South
-                    {
-                        let idx_mask = idx & SOUTH_FACE_MASK;
-                        let south_idx = if z == 0 {
-                            0
-                        } else {
-                            let idx = grid.index_at_pos(pos - UVec3 { x: 0, y: 1, z: 0 });
-                            let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
-                            SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP
-                                [shape.to_shape_descriptor() as usize]
-                        };
-                        let south_idx_mask = (south_idx & NORTH_FACE_MASK) << 4;
-                        if south_idx_mask != TOP_FACE_MASK
-                            && VALID_SOUTH_FACES.contains(&south_idx_mask)
-                            && VALID_SOUTH_FACES.contains(&idx_mask)
-                        {
-                            let face_idx = idx_mask & !south_idx_mask;
-                            self.add_vertices_at_pos(
-                                &Y_EXTERIOR_FACE_LOOKUP[face_idx as usize],
-                                pos,
-                            );
-                        }
-                    }
+                    // {
+                    //     let idx_mask = idx & NORTH_FACE_MASK;
+                    //     let north_idx = if z == 0 {
+                    //         0
+                    //     } else {
+                    //         let idx = grid.index_at_pos(pos - UVec3 { x: 0, y: 0, z: 1 });
+                    //         let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
+                    //         SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP
+                    //             [shape.to_shape_descriptor() as usize]
+                    //     };
+                    //     let north_idx_mask = (north_idx & NORTH_FACE_MASK) << 4;
+                    //     if north_idx_mask != TOP_FACE_MASK
+                    //         && VALID_NORTH_FACES.contains(&north_idx_mask)
+                    //         && VALID_NORTH_FACES.contains(&idx_mask)
+                    //     {
+                    //         let face_idx = idx_mask & !north_idx_mask;
+                    //         self.add_vertices_at_pos(
+                    //             &Y_EXTERIOR_FACE_LOOKUP[face_idx as usize],
+                    //             pos,
+                    //         );
+                    //     }
+                    // }
                 }
             }
         }
@@ -182,8 +306,33 @@ impl Mesher {
     //     1----0
     //
 
+    // West: 0b1010_1010
+    // East: 0b0101_0101
+
+    // North: 0b1100_1100
+    // South: 0b0011_0011
+    //  Test Cube layout:
+    //       7----6
+    //      /|   /|
+    //     5-+--4 |
+    //     | |  | |       y
+    //     | 3--+-2       | z
+    //     |/   |/     x__|/
+    //     1----0
+    //
+
     pub fn normal(a: Vec3, b: Vec3, c: Vec3) -> Vec3 {
         (c - a).cross(b - a).normalize()
+    }
+
+    fn get_middle_flag_corner(flag: u32) -> u32 {
+        match flag {
+            0b1011 => 0b0001,
+            0b0111 => 0b0010,
+            0b1110 => 0b0100,
+            0b1101 => 0b1000,
+            e => e
+        }
     }
 }
 

@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use bevy::prelude::{EulerRot, Mat4, UVec3, Vec3};
 
-use super::chunk::BlockIndex;
+use super::{chunk::BlockIndex, marching_cube::{NORTH_FACE_MASK, EAST_FACE_MASK, SOUTH_FACE_MASK, WEST_FACE_MASK, TOP_FACE_MASK, BOTTOM_FACE_MASK}};
 
 type BlockDescriptor = u8;
 type GridIndex = u8;
@@ -60,7 +60,7 @@ impl TryFrom<u8> for Volume {
 /// │        │
 /// ├────────┼────────┬────────┬────────┐
 /// │        │        │        │        │
-/// │  West  │ North  │  East  │ South  │
+/// │ North  │  East  │ South  │  West  |
 /// │        │        │        │        │
 /// ├────────┼────────┴────────┴────────┘
 /// │        │
@@ -417,6 +417,157 @@ pub static SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP: LazyLock<[BlockIndex; 256]> = La
 
                 let index = (facing_rotation_index * 4 + face_rotation_index) | (shape_index << 5);
                 map[index] = block_index;
+            }
+        }
+    }
+
+    map
+});
+
+
+
+pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::new(|| {
+    let mut map: [u32; 256] = [1; 256];
+    let facing_rotations = [
+        Vec3::new(0.0, 0.0, 0.0),                     // North
+        Vec3::new(0.0, -90.0_f32.to_radians(), 0.0),  // East
+        Vec3::new(0.0, -180.0_f32.to_radians(), 0.0), // South
+        Vec3::new(0.0, -270.0_f32.to_radians(), 0.0), // West
+        Vec3::new(0.0, 0.0, 90.0_f32.to_radians()),   // Top
+        Vec3::new(0.0, 0.0, -90.0_f32.to_radians()),  // Bottom
+    ];
+    // Angles are negative as the angle describes the angle seen when facing the cube from the outside, not the inside
+    let face_rotations = [
+        Vec3::new(0.0, 0.0, 0.0),                     // 0 degrees
+        Vec3::new(-90.0_f32.to_radians(), 0.0, 0.0),  // 90 degrees
+        Vec3::new(-180.0_f32.to_radians(), 0.0, 0.0), // 180 degrees
+        Vec3::new(-270.0_f32.to_radians(), 0.0, 0.0), // 270 degrees
+    ];
+
+    for (shape_index, shape) in [
+        &ZERO_SIXTH_VERTEX_LIST,
+        &ONE_SIXTH_VERTEX_LIST,
+        &TWO_SIXTH_VERTEX_LIST,
+        &THREE_SIXTH_VERTEX_LIST,
+        &FOUR_SIXTH_VERTEX_LIST,
+        &FIVE_SIXTH_VERTEX_LIST,
+        &SIX_SIXTH_VERTEX_LIST,
+    ]
+    .iter()
+    .enumerate()
+    {
+        if shape_index == 4 { continue }
+        for (facing_rotation_index, facing_rotation) in facing_rotations.iter().enumerate() {
+            for (face_rotation_index, face_rotation) in face_rotations.iter().enumerate() {
+                let rotation = *facing_rotation + *face_rotation;
+                let rot = Mat4::from_euler(EulerRot::XYZ, rotation.x, rotation.y, rotation.z);
+                let rotated_vertices = shape
+                    .iter()
+                    .map(|vertex| {
+                        let center_at_origin = vertex.as_vec3() - Vec3::new(0.5, 0.5, 0.5);
+                        let rotated = rot.transform_vector3(center_at_origin);
+                        (rotated + Vec3::new(0.5, 0.5, 0.5)).round().as_uvec3()
+                    })
+                    .collect::<Vec<UVec3>>();
+                let block_index: BlockIndex = rotated_vertices
+                    .iter()
+                    .fold(0, |acc, vertex| acc | (1 << vertex_to_index(*vertex)));
+                if shape_index == 1 && facing_rotation_index == 0 && face_rotation_index == 2 {
+                    println!("{:#10b}", block_index);
+                }
+                // if shape_index == 6 {
+                //     println!("index {:#10b}", block_index);
+                //     println!("shape index {}", shape_index << 5);
+                // }
+
+                // NORTH
+                // 0b1100_1100
+                let north_index = block_index & NORTH_FACE_MASK;
+                let north_face_flag: u32 = match north_index {
+                    0b0000_0000 => 0b0000,
+                    0b1000_1100 => 0b1011,
+                    0b0100_1100 => 0b0111,
+                    0b1100_0100 => 0b1110,
+                    0b1100_1000 => 0b1101,
+                    0b1100_1100 => 0b1111,
+                    _ => 0
+                };
+
+                // EAST
+                // 0b1001_1001
+                let east_index = block_index & EAST_FACE_MASK;
+                let east_face_flag: u32 = match east_index {
+                    0b0000_0000 => 0b0000,
+                    0b0001_1001 => 0b1011,
+                    0b1001_0001 => 0b0111,
+                    0b1001_1000 => 0b1110,
+                    0b1000_1001 => 0b1101,
+                    0b1001_1001 => 0b1111,
+                    _ => 0
+                };
+
+                // SOUTH
+                // 0b0011_0011
+                let south_index = block_index & SOUTH_FACE_MASK;
+                let south_face_flag: u32 = match south_index {
+                    0b0000_0000 => 0b0000,
+                    0b0001_0011 => 0b1011,
+                    0b0010_0011 => 0b0111,
+                    0b0011_0010 => 0b1110,
+                    0b0011_0001 => 0b1101,
+                    0b0011_0011 => 0b1111,
+                    _ => 0
+                };
+
+                // WEST
+                // 0b0110_0110
+                let west_index = block_index & WEST_FACE_MASK;
+                let west_face_flag: u32 = match west_index {
+                    0b0000_0000 => 0b0000,
+                    0b0010_0110 => 0b1011,
+                    0b0110_0010 => 0b0111,
+                    0b0110_0100 => 0b1110,
+                    0b0100_0110 => 0b1101,
+                    0b0110_0110 => 0b1111,
+                    _ => 0
+                };
+
+                // TOP
+                // 0b1111_0000
+                let top_index = block_index & TOP_FACE_MASK;
+                let top_face_flag: u32 = match top_index {
+                    0b0000_0000 => 0b0000,
+                    0b1011_0000 => 0b1011,
+                    0b1101_0000 => 0b0111,
+                    0b1110_0000 => 0b1110,
+                    0b0111_0000 => 0b1101,
+                    0b1111_0000 => 0b1111,
+                    _ => 0
+                };
+
+                // BOTTOM
+                // 0b0000_1111
+                let bottom_index = block_index & BOTTOM_FACE_MASK;
+                let bottom_face_flag: u32 = match bottom_index {
+                    0b0000_0000 => 0b0000,
+                    0b0000_1011 => 0b1011,
+                    0b0000_1101 => 0b0111,
+                    0b0000_1110 => 0b1110,
+                    0b0000_0111 => 0b1101,
+                    0b0000_1111 => 0b1111,
+                    _ => 0
+                };
+
+                let result: u32 = 0
+                    | bottom_face_flag
+                    | top_face_flag << 4
+                    | west_face_flag << 8
+                    | south_face_flag << 12
+                    | east_face_flag << 16
+                    | north_face_flag << 20;
+
+                let index = (facing_rotation_index * 4 + face_rotation_index) | (shape_index << 5);
+                map[index] = result;
             }
         }
     }

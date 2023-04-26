@@ -2,7 +2,13 @@ use std::sync::LazyLock;
 
 use bevy::prelude::{EulerRot, Mat4, UVec3, Vec3};
 
-use super::{chunk::BlockIndex, marching_cube::{NORTH_FACE_MASK, EAST_FACE_MASK, SOUTH_FACE_MASK, WEST_FACE_MASK, TOP_FACE_MASK, BOTTOM_FACE_MASK}};
+use super::{
+    chunk::BlockIndex,
+    marching_cube::{
+        BOTTOM_FACE_MASK, EAST_FACE_MASK, NORTH_FACE_MASK, SOUTH_FACE_MASK, TOP_FACE_MASK,
+        WEST_FACE_MASK,
+    },
+};
 
 type BlockDescriptor = u8;
 type GridIndex = u8;
@@ -424,8 +430,6 @@ pub static SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP: LazyLock<[BlockIndex; 256]> = La
     map
 });
 
-
-
 pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::new(|| {
     let mut map: [u32; 256] = [1; 256];
     let facing_rotations = [
@@ -456,7 +460,10 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
     .iter()
     .enumerate()
     {
-        if shape_index == 4 { continue }
+        if shape_index == 4 {
+            continue;
+        } // sinful shape
+
         for (facing_rotation_index, facing_rotation) in facing_rotations.iter().enumerate() {
             for (face_rotation_index, face_rotation) in face_rotations.iter().enumerate() {
                 let rotation = *facing_rotation + *face_rotation;
@@ -490,7 +497,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                     0b1100_0100 => 0b1110,
                     0b1100_1000 => 0b1101,
                     0b1100_1100 => 0b1111,
-                    _ => 0
+                    _ => 0,
                 };
 
                 // EAST
@@ -503,7 +510,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                     0b1001_1000 => 0b1110,
                     0b1000_1001 => 0b1101,
                     0b1001_1001 => 0b1111,
-                    _ => 0
+                    _ => 0,
                 };
 
                 // SOUTH
@@ -516,7 +523,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                     0b0011_0010 => 0b1110,
                     0b0011_0001 => 0b1101,
                     0b0011_0011 => 0b1111,
-                    _ => 0
+                    _ => 0,
                 };
 
                 // WEST
@@ -529,7 +536,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                     0b0110_0100 => 0b1110,
                     0b0100_0110 => 0b1101,
                     0b0110_0110 => 0b1111,
-                    _ => 0
+                    _ => 0,
                 };
 
                 // TOP
@@ -542,7 +549,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                     0b1110_0000 => 0b1110,
                     0b0111_0000 => 0b1101,
                     0b1111_0000 => 0b1111,
-                    _ => 0
+                    _ => 0,
                 };
 
                 // BOTTOM
@@ -555,7 +562,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                     0b0000_1110 => 0b1110,
                     0b0000_0111 => 0b1101,
                     0b0000_1111 => 0b1111,
-                    _ => 0
+                    _ => 0,
                 };
 
                 let result: u32 = 0

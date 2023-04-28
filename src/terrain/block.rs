@@ -169,12 +169,12 @@ impl Shape {
 pub static VERTEX_LIST: [UVec3; 8] = [
     UVec3::new(0, 0, 0),
     UVec3::new(1, 0, 0),
-    UVec3::new(1, 0, 1),
     UVec3::new(0, 0, 1),
+    UVec3::new(1, 0, 1),
     UVec3::new(0, 1, 0),
     UVec3::new(1, 1, 0),
-    UVec3::new(1, 1, 1),
     UVec3::new(0, 1, 1),
+    UVec3::new(1, 1, 1),
 ];
 
 pub static ZERO_SIXTH_VERTEX_LIST: LazyLock<Vec<UVec3>> = LazyLock::new(|| vec![]);
@@ -479,23 +479,16 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                 let block_index: BlockIndex = rotated_vertices
                     .iter()
                     .fold(0, |acc, vertex| acc | (1 << vertex_to_index(*vertex)));
-                if shape_index == 1 && facing_rotation_index == 0 && face_rotation_index == 2 {
-                    println!("{:#10b}", block_index);
-                }
-                // if shape_index == 6 {
-                //     println!("index {:#10b}", block_index);
-                //     println!("shape index {}", shape_index << 5);
-                // }
 
                 // NORTH
                 // 0b1100_1100
                 let north_index = block_index & NORTH_FACE_MASK;
                 let north_face_flag: u32 = match north_index {
                     0b0000_0000 => 0b0000,
-                    0b1000_1100 => 0b1011,
-                    0b0100_1100 => 0b0111,
-                    0b1100_0100 => 0b1110,
-                    0b1100_1000 => 0b1101,
+                    0b0100_1100 => 0b1011,
+                    0b1000_1100 => 0b0111,
+                    0b1100_1000 => 0b1110,
+                    0b1100_0100 => 0b1101,
                     0b1100_1100 => 0b1111,
                     _ => 0,
                 };
@@ -505,11 +498,11 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                 let east_index = block_index & EAST_FACE_MASK;
                 let east_face_flag: u32 = match east_index {
                     0b0000_0000 => 0b0000,
-                    0b0001_1001 => 0b1011,
-                    0b1001_0001 => 0b0111,
-                    0b1001_1000 => 0b1110,
-                    0b1000_1001 => 0b1101,
-                    0b1001_1001 => 0b1111,
+                    0b0001_0101 => 0b1011,
+                    0b0101_0001 => 0b0111,
+                    0b0101_0100 => 0b1110,
+                    0b0100_0101 => 0b1101,
+                    0b0101_0101 => 0b1111,
                     _ => 0,
                 };
 
@@ -531,11 +524,11 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                 let west_index = block_index & WEST_FACE_MASK;
                 let west_face_flag: u32 = match west_index {
                     0b0000_0000 => 0b0000,
-                    0b0010_0110 => 0b1011,
-                    0b0110_0010 => 0b0111,
-                    0b0110_0100 => 0b1110,
-                    0b0100_0110 => 0b1101,
-                    0b0110_0110 => 0b1111,
+                    0b0010_1010 => 0b1011,
+                    0b1010_0010 => 0b0111,
+                    0b1010_1000 => 0b1110,
+                    0b1000_1010 => 0b1101,
+                    0b1010_1010 => 0b1111,
                     _ => 0,
                 };
 
@@ -544,10 +537,10 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                 let top_index = block_index & TOP_FACE_MASK;
                 let top_face_flag: u32 = match top_index {
                     0b0000_0000 => 0b0000,
-                    0b1011_0000 => 0b1011,
+                    0b0111_0000 => 0b1011,
                     0b1101_0000 => 0b0111,
                     0b1110_0000 => 0b1110,
-                    0b0111_0000 => 0b1101,
+                    0b1011_0000 => 0b1101,
                     0b1111_0000 => 0b1111,
                     _ => 0,
                 };
@@ -557,10 +550,10 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                 let bottom_index = block_index & BOTTOM_FACE_MASK;
                 let bottom_face_flag: u32 = match bottom_index {
                     0b0000_0000 => 0b0000,
-                    0b0000_1011 => 0b1011,
+                    0b0000_0111 => 0b1011,
                     0b0000_1101 => 0b0111,
                     0b0000_1110 => 0b1110,
-                    0b0000_0111 => 0b1101,
+                    0b0000_1011 => 0b1101,
                     0b0000_1111 => 0b1111,
                     _ => 0,
                 };

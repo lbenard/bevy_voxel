@@ -2,7 +2,7 @@ use bevy::prelude::UVec3;
 use interpolation::lerp;
 use noise::{NoiseFn, OpenSimplex};
 
-use crate::terrain::{chunk::Grid, generator::ChunkGenerator, marching_cube::INDEX_LOOKUP};
+use crate::terrain::{chunk::Grid, generator::ChunkGenerator};
 
 pub struct NoiseTerrain {
     noise: OpenSimplex,
@@ -47,12 +47,12 @@ impl ChunkGenerator for NoiseTerrain {
                         (z as f64) / 32.0,
                     ]);
                     let _2 = self.noise.get([
-                        ((x + 1) as f64) / 32.0,
+                        (x as f64) / 32.0,
                         (y as f64) / 32.0,
                         ((z + 1) as f64) / 32.0,
                     ]);
                     let _3 = self.noise.get([
-                        (x as f64) / 32.0,
+                        ((x + 1) as f64) / 32.0,
                         (y as f64) / 32.0,
                         ((z + 1) as f64) / 32.0,
                     ]);
@@ -67,16 +67,16 @@ impl ChunkGenerator for NoiseTerrain {
                         (z as f64) / 32.0,
                     ]);
                     let _6 = self.noise.get([
-                        ((x + 1) as f64) / 32.0,
-                        ((y + 1) as f64) / 32.0,
-                        ((z + 1) as f64) / 32.0,
-                    ]);
-                    let _7 = self.noise.get([
                         (x as f64) / 32.0,
                         ((y + 1) as f64) / 32.0,
                         ((z + 1) as f64) / 32.0,
                     ]);
-                    let mut index = Self::block_idx(&[
+                    let _7 = self.noise.get([
+                        ((x + 1) as f64) / 32.0,
+                        ((y + 1) as f64) / 32.0,
+                        ((z + 1) as f64) / 32.0,
+                    ]);
+                    let index = Self::block_idx(&[
                         _0 > lower_height_treshold,
                         _1 > lower_height_treshold,
                         _2 > lower_height_treshold,
@@ -87,9 +87,9 @@ impl ChunkGenerator for NoiseTerrain {
                         _7 > higher_height_treshold,
                     ]);
                     let idx = chunk.pos_idx(UVec3 { x, y, z });
-                    if index != 0b1111_1111 && INDEX_LOOKUP[index as usize].len() == 0 {
-                        index = 0;
-                    }
+                    // if index != 0b1111_1111 && INDEX_LOOKUP[index as usize].len() == 0 {
+                    //     index = 0;
+                    // }
                     chunk.blocks[idx] = index;
                 }
             }

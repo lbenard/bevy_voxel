@@ -545,6 +545,16 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                     _ => 0,
                 };
 
+                // let test_top_face_flag: u32 = match top_index {
+                //     0b0000_0000 => 0b0000,
+                //     0b0111_0000 => 0b1011,
+                //     0b1101_0000 => 0b0111,
+                //     0b1110_0000 => 0b1110,
+                //     0b1011_0000 => 0b1101,
+                //     0b1111_0000 => 0b1111,
+                //     _ => 0,
+                // };
+
                 // BOTTOM
                 // 0b0000_1111
                 let bottom_index = block_index & BOTTOM_FACE_MASK;

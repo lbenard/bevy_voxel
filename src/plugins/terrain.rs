@@ -52,9 +52,22 @@ impl TerrainPlugin {
         mut meshes: ResMut<Assets<render::mesh::Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
     ) {
-        let mut grid = Grid::new(UVec3 { x: 3, y: 3, z: 3 });
-        grid.blocks[13] = 0b0001_1111;
-        // grid.blocks[1] = 0b1111_1111;
+        let mut grid = Grid::new(UVec3 {
+            x: 32,
+            y: 32,
+            z: 32,
+        });
+        for x in 0..grid.size.x {
+            for z in 0..grid.size.z {
+                let y = 0;
+                let idx = grid.pos_idx(UVec3 { x, y, z });
+                grid.blocks[idx] = 0b1111_1111;
+            }
+        }
+        let idx = grid.pos_idx(UVec3 { x: 1, y: 2, z: 1 });
+        grid.blocks[idx] = 0b0111_0001;
+        let idx = grid.pos_idx(UVec3 { x: 1, y: 3, z: 1 });
+        grid.blocks[idx] = 0b0010_1011;
 
         let mesh = Mesher::new().mesh_grid(&grid).mesh();
         let mut material: StandardMaterial = Color::rgb(0.0, 0.6, 0.1).into();

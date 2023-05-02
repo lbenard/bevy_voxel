@@ -48,7 +48,7 @@ impl Mesher {
                     let idx = grid.index_at_pos(pos);
                     let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
                     let shape_descriptor = shape.to_shape_descriptor();
-                    let idx = SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP[shape_descriptor as usize];
+                    // let idx = SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP[shape_descriptor as usize];
                     let tris =
                         &SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP[shape_descriptor as usize];
                     self.add_vertices_at_pos(tris, pos);
@@ -56,7 +56,7 @@ impl Mesher {
                     // Bottom
                     {
                         let flag = SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape_descriptor as usize]
-                            & BOTTOM_FACE_MASK as u32;
+                            & 0b1111 as u32;
                         let bottom_shape_descriptor = if y == 0 {
                             Shape::new(Rotation::FacingNorth0Degrees, Volume::SixSixth)
                                 .to_shape_descriptor() // pretend it's a full block so bottom of the chunks doesn't get rendered
@@ -67,7 +67,7 @@ impl Mesher {
                         };
                         let bottom_flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP
                             [bottom_shape_descriptor as usize]
-                            & TOP_FACE_MASK as u32)
+                            & 0b1111_0000 as u32)
                             >> 4;
 
                         let result_flag = if flag == 0 {
@@ -77,6 +77,13 @@ impl Mesher {
                         };
 
                         let result = Self::get_middle_flag_corner(result_flag);
+                        if result > 0 && result != 0b1111 {
+                            println!("{x} {y} {z}");
+                            println!("flag {:#18b}", flag);
+                            println!("bottom_flag {:#18b}", bottom_flag);
+                            println!("result_flag {:#18b}", result);
+                            println!("");
+                        }
                         self.add_vertices_at_pos(
                             &match result {
                                 0b1111 => vec![
@@ -121,11 +128,11 @@ impl Mesher {
                     // {
                     //     let flag = SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape_descriptor as usize]
                     //         & EAST_FACE_MASK as u32;
-                    //     let east_shape_descriptor = if x == grid.size.x - 1 {
+                    //     let east_shape_descriptor = if x == 0 {
                     //         Shape::new(Rotation::FacingNorth0Degrees, Volume::SixSixth)
                     //             .to_shape_descriptor() // pretend it's a full block so east of the chunks doesn't get rendered
                     //     } else {
-                    //         let idx = grid.index_at_pos(pos + UVec3 { x: 1, y: 0, z: 0 });
+                    //         let idx = grid.index_at_pos(pos - UVec3 { x: 1, y: 0, z: 0 });
                     //         let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
                     //         shape.to_shape_descriptor()
                     //     };
@@ -184,7 +191,7 @@ impl Mesher {
                     // Top
                     {
                         let flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape_descriptor as usize]
-                            & TOP_FACE_MASK as u32)
+                            & 0b1111_0000 as u32)
                             >> 4;
                         let top_shape_descriptor = if y == grid.size.y - 1 {
                             Shape::new(Rotation::FacingNorth0Degrees, Volume::ZeroSixth)
@@ -196,7 +203,7 @@ impl Mesher {
                         };
                         let top_flag = SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP
                             [top_shape_descriptor as usize]
-                            & BOTTOM_FACE_MASK as u32;
+                            & 0b1111 as u32;
 
                         let result_flag = if flag == 0 {
                             top_flag
@@ -205,11 +212,12 @@ impl Mesher {
                         };
 
                         let result = Self::get_middle_flag_corner(result_flag);
-                        if result > 0 {
+                        if result > 0 && result != 0b1111 {
+                            println!("{x} {y} {z}");
                             println!("flag {:#18b}", flag);
                             println!("top_flag {:#18b}", top_flag);
                             println!("result_flag {:#18b}", result);
-                            println!("{x} {y} {z}");
+                            println!("");
                         }
                         self.add_vertices_at_pos(
                             &match result {
@@ -390,6 +398,11 @@ impl Mesher {
     // Bottom: 0b0000_1111
     // West: 0b1010_1010
     // East: 0b0101_0101
+
+    // Face flag rotation order per direction:
+    // x: 0 -> 4 -> 6 -> 2 or 1 -> 5 -> 7 -> 3
+    // y: 0 -> 2 -> 3 -> 1 or 4 -> 6 -> 7 -> 5
+    // z: 0 -> 1 -> 5 -> 4 or 2 -> 3 -> 7 -> 6
     //  Test Cube layout:
     //       7----6
     //      /|   /|
@@ -404,8 +417,15 @@ impl Mesher {
         (c - a).cross(b - a).normalize()
     }
 
+    // TODO: can probably be replaced by some bitwise trickery
     fn get_middle_flag_corner(flag: u32) -> u32 {
         match flag {
+            // x axis
+            0b0001_0101 => 0b0001,
+            0b0101_0001 => 0b0010,
+            0b0101_0100 => 0b0100,
+            0b0100_0101 => 0b1000,
+            // y axis
             0b1011 => 0b0001,
             0b0111 => 0b0010,
             0b1110 => 0b0100,

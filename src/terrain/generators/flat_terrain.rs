@@ -1,4 +1,4 @@
-use bevy::prelude::UVec3;
+use bevy::prelude::{IVec3, UVec3};
 
 use crate::terrain::{chunk::Grid, generator::ChunkGenerator};
 
@@ -11,7 +11,7 @@ impl FlatTerrain {
 }
 
 impl ChunkGenerator for FlatTerrain {
-    fn generate(&self, chunk: &mut Grid) {
+    fn generate(&self, _origin: IVec3, chunk: &mut Grid) {
         for x in 0..chunk.size.x {
             for z in 0..chunk.size.z {
                 for y in 0..x + 1 {

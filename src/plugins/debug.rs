@@ -2,7 +2,7 @@ use bevy::{prelude::*, render};
 
 use crate::terrain::{
     block::{Rotation, Shape, Volume, SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP},
-    chunk::{Grid, Mesher},
+    chunk::Mesher,
 };
 
 #[derive(Component)]
@@ -71,26 +71,17 @@ impl DebugPlugin {
                 );
 
                 // debug sphere magic
-                commands
-                    .spawn_bundle(PbrBundle {
-                        mesh: meshes.add(render::mesh::Mesh::from(shape::Icosphere {
-                            radius: 0.2,
-                            subdivisions: 1,
-                        })),
-                        material: materials.add(material.clone()),
-                        transform: Transform::from_xyz(
-                            rotation_index as f32,
-                            0.0,
-                            volume_index as f32 * 2.0,
-                        ),
-                        ..default()
-                    })
-                    .insert(DebugComponent);
+                Self::spawn_sphere(
+                    &mut commands,
+                    &mut meshes,
+                    &mut materials,
+                    UVec3::new(rotation_index as u32, 0, volume_index as u32 * 2),
+                );
             }
         }
 
         let mesh = mesher.mesh();
-        commands.spawn_bundle(PbrBundle {
+        commands.spawn(PbrBundle {
             mesh: meshes.add(mesh),
             material: materials.add(material.clone()),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
@@ -108,12 +99,16 @@ impl DebugPlugin {
         material.metallic = 0.0;
         material.reflectance = 0.0;
 
+        let icosphere: Mesh = shape::Icosphere {
+            radius: 0.5,
+            subdivisions: 5,
+        }
+        .try_into()
+        .unwrap();
+
         commands
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(render::mesh::Mesh::from(shape::Icosphere {
-                    radius: 0.2,
-                    subdivisions: 1,
-                })),
+            .spawn(PbrBundle {
+                mesh: meshes.add(render::mesh::Mesh::from(icosphere)),
                 material: materials.add(material.clone()),
                 transform: Transform::from_xyz(pos.x as f32, pos.y as f32, pos.z as f32),
                 ..default()

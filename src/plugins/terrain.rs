@@ -1,11 +1,20 @@
 use std::f32::consts::PI;
 
-use bevy::{prelude::*, render};
+use bevy::{
+    prelude::*,
+    render,
+    tasks::{AsyncComputeTaskPool, Task},
+};
 
 use crate::terrain::{
-    chunk::{Grid, Mesher},
+    chunk::{Chunk, Grid, Mesher},
     generators::noise_terrain::NoiseTerrain,
 };
+
+use futures_lite::future;
+
+#[derive(Component)]
+struct ComputeChunk(Task<Chunk>);
 
 pub struct TerrainPlugin;
 
@@ -13,37 +22,69 @@ impl Plugin for TerrainPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_startup_system(Self::setup_light);
 
-        #[cfg(debug_assertions)]
-        app.add_startup_system(Self::setup_debug_terrain);
-        #[cfg(not(debug_assertions))]
-        app.add_startup_system(Self::setup_terrain);
+        // #[cfg(debug_assertions)]
+        // app.add_startup_system(Self::setup_debug_terrain);
+        // #[cfg(not(debug_assertions))]
+        app.add_startup_system(Self::setup_terrain)
+            .add_system(Self::handle_chunk_tasks);
     }
 }
 
 impl TerrainPlugin {
-    fn setup_terrain(
+    fn setup_terrain(mut commands: Commands) {
+        let chunk_size = UVec3::new(32, 32, 32);
+
+        let thread_pool = AsyncComputeTaskPool::get();
+        for x in 0..64 {
+            for y in 0..1 {
+                for z in 0..64 {
+                    let generator = NoiseTerrain::new();
+
+                    let task = thread_pool.spawn(async move {
+                        let absolute_position = IVec3::new(
+                            x * chunk_size.x as i32,
+                            y * chunk_size.y as i32,
+                            z * chunk_size.z as i32,
+                        );
+                        let grid = Grid::new(chunk_size).generate(absolute_position, &generator);
+
+                        let mesh = Mesher::new().mesh_grid(&grid).mesh();
+                        Chunk::new(absolute_position, mesh)
+                    });
+
+                    commands.spawn(ComputeChunk(task));
+                }
+            }
+        }
+    }
+
+    fn handle_chunk_tasks(
         mut commands: Commands,
+        mut chunk_tasks: Query<(Entity, &mut ComputeChunk)>,
         mut meshes: ResMut<Assets<render::mesh::Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
     ) {
-        let generator = NoiseTerrain::new();
-        let grid = Grid::new(UVec3 {
-            x: 128,
-            y: 128,
-            z: 128,
-        })
-        .generate(&generator);
-
-        let mesh = Mesher::new().mesh_grid(&grid).mesh();
         let mut material: StandardMaterial = Color::rgb(0.0, 0.6, 0.1).into();
         material.metallic = 0.0;
         material.reflectance = 0.0;
-        commands.spawn_bundle(PbrBundle {
-            mesh: meshes.add(mesh),
-            material: materials.add(material.clone()),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        });
+        material.perceptual_roughness = 1.0;
+
+        for (entity, mut chunk_task) in &mut chunk_tasks.iter_mut() {
+            if let Some(chunk) = future::block_on(future::poll_once(&mut chunk_task.0)) {
+                commands.entity(entity).insert(PbrBundle {
+                    mesh: meshes.add(chunk.mesh),
+                    material: materials.add(material.clone()),
+                    transform: Transform::from_xyz(
+                        chunk.absolute_position.x as f32,
+                        chunk.absolute_position.y as f32,
+                        chunk.absolute_position.z as f32,
+                    ),
+                    ..default()
+                });
+
+                commands.entity(entity).remove::<ComputeChunk>();
+            }
+        }
     }
 
     #[cfg(debug_assertions)]
@@ -73,7 +114,7 @@ impl TerrainPlugin {
         let mut material: StandardMaterial = Color::rgb(0.0, 0.6, 0.1).into();
         material.metallic = 0.0;
         material.reflectance = 0.0;
-        commands.spawn_bundle(PbrBundle {
+        commands.spawn(PbrBundle {
             mesh: meshes.add(mesh),
             material: materials.add(material.clone()),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
@@ -82,7 +123,7 @@ impl TerrainPlugin {
     }
 
     fn setup_light(mut commands: Commands) {
-        commands.spawn_bundle(DirectionalLightBundle {
+        commands.spawn(DirectionalLightBundle {
             directional_light: DirectionalLight {
                 color: Color::rgb(1.0, 1.0, 1.0),
                 illuminance: 60_000.0,
@@ -91,6 +132,10 @@ impl TerrainPlugin {
             transform: Transform::from_xyz(0.0, 0.0, 0.0)
                 .with_rotation(Quat::from_rotation_x(-PI / 3.0)),
             ..default()
+        });
+        commands.insert_resource(AmbientLight {
+            color: Color::rgb(1.0, 1.0, 1.0),
+            brightness: 0.5,
         });
     }
 }

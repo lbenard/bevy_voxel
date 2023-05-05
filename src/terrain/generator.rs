@@ -1,7 +1,9 @@
+use bevy::prelude::IVec3;
+
 use super::chunk::{BlockIndex, Grid};
 
 pub trait ChunkGenerator {
-    fn generate(&self, chunk: &mut Grid);
+    fn generate(&self, origin: IVec3, chunk: &mut Grid);
 
     fn block_idx(bits: &[bool; 8]) -> BlockIndex {
         let mut idx = 0;

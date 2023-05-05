@@ -2,16 +2,28 @@ use std::sync::LazyLock;
 
 use bevy::prelude::{EulerRot, Mat4, UVec3, Vec3};
 
-use super::{
-    chunk::BlockIndex,
-    marching_cube::{
-        BOTTOM_FACE_MASK, EAST_FACE_MASK, NORTH_FACE_MASK, SOUTH_FACE_MASK, TOP_FACE_MASK,
-        WEST_FACE_MASK,
-    },
-};
+use super::chunk::BlockIndex;
 
 type BlockDescriptor = u8;
 type GridIndex = u8;
+
+// Towards +y
+pub const TOP_FACE_MASK: u8 = 0b1111_0000;
+
+// Towards -y
+pub const BOTTOM_FACE_MASK: u8 = 0b0000_1111;
+
+// Towards +x
+pub const WEST_FACE_MASK: u8 = 0b1010_1010;
+
+// Towards +z
+pub const NORTH_FACE_MASK: u8 = 0b1100_1100;
+
+// Towards -x
+pub const EAST_FACE_MASK: u8 = 0b0101_0101;
+
+// Towards -z
+pub const SOUTH_FACE_MASK: u8 = 0b0011_0011;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(u8)]
@@ -151,6 +163,11 @@ impl Shape {
     pub const EMPTY: Self = Self {
         rotation: Rotation::FacingNorth0Degrees,
         volume: Volume::ZeroSixth,
+    };
+
+    pub const FULL: Self = Self {
+        rotation: Rotation::FacingNorth0Degrees,
+        volume: Volume::SixSixth,
     };
 
     pub fn new(rotation: Rotation, volume: Volume) -> Self {
@@ -484,11 +501,10 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                 // 0b1100_1100
                 let north_index = block_index & NORTH_FACE_MASK;
                 let north_face_flag: u32 = match north_index {
-                    0b0000_0000 => 0b0000,
-                    0b0100_1100 => 0b1011,
-                    0b1000_1100 => 0b0111,
-                    0b1100_1000 => 0b1110,
-                    0b1100_0100 => 0b1101,
+                    0b0100_1100 => 0b0001,
+                    0b1000_1100 => 0b0010,
+                    0b1100_1000 => 0b0100,
+                    0b1100_0100 => 0b1000,
                     0b1100_1100 => 0b1111,
                     _ => 0,
                 };
@@ -497,11 +513,10 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                 // 0b1001_1001
                 let east_index = block_index & EAST_FACE_MASK;
                 let east_face_flag: u32 = match east_index {
-                    0b0000_0000 => 0b0000,
-                    0b0001_0101 => 0b1011,
-                    0b0101_0001 => 0b0111,
-                    0b0101_0100 => 0b1110,
-                    0b0100_0101 => 0b1101,
+                    0b0001_0101 => 0b0001,
+                    0b0101_0001 => 0b0010,
+                    0b0101_0100 => 0b0100,
+                    0b0100_0101 => 0b1000,
                     0b0101_0101 => 0b1111,
                     _ => 0,
                 };
@@ -510,11 +525,10 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                 // 0b0011_0011
                 let south_index = block_index & SOUTH_FACE_MASK;
                 let south_face_flag: u32 = match south_index {
-                    0b0000_0000 => 0b0000,
-                    0b0001_0011 => 0b1011,
-                    0b0010_0011 => 0b0111,
-                    0b0011_0010 => 0b1110,
-                    0b0011_0001 => 0b1101,
+                    0b0001_0011 => 0b0001,
+                    0b0010_0011 => 0b0010,
+                    0b0011_0010 => 0b0100,
+                    0b0011_0001 => 0b1000,
                     0b0011_0011 => 0b1111,
                     _ => 0,
                 };
@@ -523,11 +537,10 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                 // 0b0110_0110
                 let west_index = block_index & WEST_FACE_MASK;
                 let west_face_flag: u32 = match west_index {
-                    0b0000_0000 => 0b0000,
-                    0b0010_1010 => 0b1011,
-                    0b1010_0010 => 0b0111,
-                    0b1010_1000 => 0b1110,
-                    0b1000_1010 => 0b1101,
+                    0b0010_1010 => 0b0001,
+                    0b1010_0010 => 0b0010,
+                    0b1010_1000 => 0b0100,
+                    0b1000_1010 => 0b1000,
                     0b1010_1010 => 0b1111,
                     _ => 0,
                 };
@@ -536,34 +549,22 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                 // 0b1111_0000
                 let top_index = block_index & TOP_FACE_MASK;
                 let top_face_flag: u32 = match top_index {
-                    0b0000_0000 => 0b0000,
-                    0b0111_0000 => 0b1011,
-                    0b1101_0000 => 0b0111,
-                    0b1110_0000 => 0b1110,
-                    0b1011_0000 => 0b1101,
+                    0b0111_0000 => 0b0001,
+                    0b1101_0000 => 0b0010,
+                    0b1110_0000 => 0b0100,
+                    0b1011_0000 => 0b1000,
                     0b1111_0000 => 0b1111,
                     _ => 0,
                 };
-
-                // let test_top_face_flag: u32 = match top_index {
-                //     0b0000_0000 => 0b0000,
-                //     0b0111_0000 => 0b1011,
-                //     0b1101_0000 => 0b0111,
-                //     0b1110_0000 => 0b1110,
-                //     0b1011_0000 => 0b1101,
-                //     0b1111_0000 => 0b1111,
-                //     _ => 0,
-                // };
 
                 // BOTTOM
                 // 0b0000_1111
                 let bottom_index = block_index & BOTTOM_FACE_MASK;
                 let bottom_face_flag: u32 = match bottom_index {
-                    0b0000_0000 => 0b0000,
-                    0b0000_0111 => 0b1011,
-                    0b0000_1101 => 0b0111,
-                    0b0000_1110 => 0b1110,
-                    0b0000_1011 => 0b1101,
+                    0b0000_0111 => 0b0001,
+                    0b0000_1101 => 0b0010,
+                    0b0000_1110 => 0b0100,
+                    0b0000_1011 => 0b1000,
                     0b0000_1111 => 0b1111,
                     _ => 0,
                 };
@@ -578,6 +579,74 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
 
                 let index = (facing_rotation_index * 4 + face_rotation_index) | (shape_index << 5);
                 map[index] = result;
+            }
+        }
+    }
+
+    map
+});
+
+pub static BLOCK_INDEX_TO_SHAPE_MAP: LazyLock<[Shape; 256]> = LazyLock::new(|| {
+    let mut map: [Shape; 256] = [Shape::EMPTY; 256];
+    let facing_rotations = [
+        Vec3::new(0.0, 0.0, 0.0),                     // North
+        Vec3::new(0.0, -90.0_f32.to_radians(), 0.0),  // East
+        Vec3::new(0.0, -180.0_f32.to_radians(), 0.0), // South
+        Vec3::new(0.0, -270.0_f32.to_radians(), 0.0), // West
+        Vec3::new(0.0, 0.0, 90.0_f32.to_radians()),   // Top
+        Vec3::new(0.0, 0.0, -90.0_f32.to_radians()),  // Bottom
+    ];
+    // Angles are negative as the angle describes the angle seen when facing the cube from the outside, not the inside
+    let face_rotations = [
+        Vec3::new(0.0, 0.0, 0.0),                     // 0 degrees
+        Vec3::new(-90.0_f32.to_radians(), 0.0, 0.0),  // 90 degrees
+        Vec3::new(-180.0_f32.to_radians(), 0.0, 0.0), // 180 degrees
+        Vec3::new(-270.0_f32.to_radians(), 0.0, 0.0), // 270 degrees
+    ];
+
+    for (vertex_list_index, vertex_list) in [
+        &ZERO_SIXTH_VERTEX_LIST,
+        &ONE_SIXTH_VERTEX_LIST,
+        &TWO_SIXTH_VERTEX_LIST,
+        &THREE_SIXTH_VERTEX_LIST,
+        &FOUR_SIXTH_VERTEX_LIST,
+        &FIVE_SIXTH_VERTEX_LIST,
+        &SIX_SIXTH_VERTEX_LIST,
+    ]
+    .iter()
+    .enumerate()
+    {
+        for (facing_rotation_index, facing_rotation) in facing_rotations.iter().enumerate() {
+            for (face_rotation_index, face_rotation) in face_rotations.iter().enumerate() {
+                let rotation = *facing_rotation + *face_rotation;
+                let rot = Mat4::from_euler(EulerRot::XYZ, rotation.x, rotation.y, rotation.z);
+                let rotated_vertices = vertex_list
+                    .iter()
+                    .map(|vertex| {
+                        let center_at_origin = vertex.as_vec3() - Vec3::new(0.5, 0.5, 0.5);
+                        let rotated = rot.transform_vector3(center_at_origin);
+                        (rotated + Vec3::new(0.5, 0.5, 0.5)).round().as_uvec3()
+                    })
+                    .collect::<Vec<UVec3>>();
+                let grid_index = rotated_vertices
+                    .iter()
+                    .fold(0, |acc, vertex| acc | (1 << vertex_to_index(*vertex)));
+
+                // Use more aesthetically pleasing shapes for natural generation. The 2/6 and 4/6 both look weird for slopes
+                let aesthetic_volume_index = match vertex_list_index {
+                    2 => 1,
+                    4 => 5,
+                    x => x,
+                };
+
+                if map[grid_index].volume == Volume::ZeroSixth {
+                    map[grid_index] = Shape::new(
+                        ((facing_rotation_index * 4 + face_rotation_index) as u8)
+                            .try_into()
+                            .unwrap(),
+                        (aesthetic_volume_index as u8).try_into().unwrap(),
+                    )
+                }
             }
         }
     }

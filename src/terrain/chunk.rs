@@ -1,20 +1,14 @@
-use std::convert::TryInto;
-use std::mem::transmute;
-
 use crate::terrain::block::Shape;
 
 use super::{
     block::{
-        Rotation, Volume, SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP, SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP,
+        Rotation, Volume, BLOCK_INDEX_TO_SHAPE_MAP, SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP,
         SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP,
     },
     generator::ChunkGenerator,
-    marching_cube::{
-        BLOCK_INDEX_TO_SHAPE_MAP, BOTTOM_FACE_MASK, EAST_FACE_MASK, TOP_FACE_MASK, WEST_FACE_MASK,
-    },
 };
 
-use bevy::prelude::Mesh;
+use bevy::prelude::{IVec3, Mesh};
 use bevy::{
     math::UVec3,
     prelude::Vec3,
@@ -22,6 +16,20 @@ use bevy::{
 };
 
 pub type BlockIndex = u8;
+
+pub struct Chunk {
+    pub absolute_position: IVec3,
+    pub mesh: Mesh,
+}
+
+impl Chunk {
+    pub fn new(absolute_position: IVec3, mesh: Mesh) -> Self {
+        Self {
+            absolute_position,
+            mesh,
+        }
+    }
+}
 
 pub struct Mesher {
     vertices: Vec<[f32; 3]>,
@@ -42,13 +50,33 @@ impl Mesher {
 
     pub fn mesh_grid(mut self, grid: &Grid) -> Self {
         for z in 0..grid.size.z {
-            for y in 0..grid.size.y {
-                for x in 0..grid.size.x {
+            for x in 0..grid.size.x {
+                // let start_y = (0..grid.size.y)
+                //     .find(|y| {
+                //         BLOCK_INDEX_TO_SHAPE_MAP[grid.index_at_pos(UVec3 { x, y: *y, z }) as usize]
+                //             .volume
+                //             != Volume::ZeroSixth
+                //     })
+                //     .unwrap();
+                // let end_y = ((0..grid.size.y)
+                //     .rfind(|y| {
+                //         BLOCK_INDEX_TO_SHAPE_MAP[grid.index_at_pos(UVec3 { x, y: *y, z }) as usize]
+                //             .volume
+                //             != Volume::ZeroSixth
+                //     })
+                //     .unwrap()
+                //     + 2)
+                // .min(grid.size.y - 1);
+                // println!("{start_y} {end_y}");
+                for y in 0..grid.size.y {
                     let pos = UVec3 { x, y, z };
                     let idx = grid.index_at_pos(pos);
                     let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
+                    if shape.volume == Volume::SixSixth {
+                        continue;
+                    }
+
                     let shape_descriptor = shape.to_shape_descriptor();
-                    // let idx = SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP[shape_descriptor as usize];
                     let tris =
                         &SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP[shape_descriptor as usize];
                     self.add_vertices_at_pos(tris, pos);
@@ -67,7 +95,7 @@ impl Mesher {
                         };
                         let bottom_flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP
                             [bottom_shape_descriptor as usize]
-                            & 0b1111_0000 as u32)
+                            & (0b1111 << 4) as u32)
                             >> 4;
 
                         let result_flag = if flag == 0 {
@@ -77,13 +105,6 @@ impl Mesher {
                         };
 
                         let result = Self::get_middle_flag_corner(result_flag);
-                        if result > 0 && result != 0b1111 {
-                            println!("{x} {y} {z}");
-                            println!("flag {:#18b}", flag);
-                            println!("bottom_flag {:#18b}", bottom_flag);
-                            println!("result_flag {:#18b}", result);
-                            println!("");
-                        }
                         self.add_vertices_at_pos(
                             &match result {
                                 0b1111 => vec![
@@ -98,16 +119,6 @@ impl Mesher {
                                         UVec3 { x: 1, y: 0, z: 0 },
                                     ],
                                 ],
-                                0b0100 => vec![[
-                                    UVec3 { x: 1, y: 0, z: 1 },
-                                    UVec3 { x: 1, y: 0, z: 0 },
-                                    UVec3 { x: 0, y: 0, z: 1 },
-                                ]],
-                                0b1000 => vec![[
-                                    UVec3 { x: 1, y: 0, z: 0 },
-                                    UVec3 { x: 0, y: 0, z: 0 },
-                                    UVec3 { x: 1, y: 0, z: 1 },
-                                ]],
                                 0b0001 => vec![[
                                     UVec3 { x: 0, y: 0, z: 0 },
                                     UVec3 { x: 0, y: 0, z: 1 },
@@ -118,80 +129,26 @@ impl Mesher {
                                     UVec3 { x: 1, y: 0, z: 1 },
                                     UVec3 { x: 0, y: 0, z: 0 },
                                 ]],
+                                0b0100 => vec![[
+                                    UVec3 { x: 1, y: 0, z: 1 },
+                                    UVec3 { x: 1, y: 0, z: 0 },
+                                    UVec3 { x: 0, y: 0, z: 1 },
+                                ]],
+                                0b1000 => vec![[
+                                    UVec3 { x: 1, y: 0, z: 0 },
+                                    UVec3 { x: 0, y: 0, z: 0 },
+                                    UVec3 { x: 1, y: 0, z: 1 },
+                                ]],
                                 _ => vec![],
                             },
                             pos,
                         );
                     }
 
-                    // East
-                    // {
-                    //     let flag = SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape_descriptor as usize]
-                    //         & EAST_FACE_MASK as u32;
-                    //     let east_shape_descriptor = if x == 0 {
-                    //         Shape::new(Rotation::FacingNorth0Degrees, Volume::SixSixth)
-                    //             .to_shape_descriptor() // pretend it's a full block so east of the chunks doesn't get rendered
-                    //     } else {
-                    //         let idx = grid.index_at_pos(pos - UVec3 { x: 1, y: 0, z: 0 });
-                    //         let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
-                    //         shape.to_shape_descriptor()
-                    //     };
-                    //     let east_flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP
-                    //         [east_shape_descriptor as usize]
-                    //         & WEST_FACE_MASK as u32)
-                    //         >> 1;
-
-                    //     let result_flag = if flag == 0 {
-                    //         east_flag
-                    //     } else {
-                    //         !flag & east_flag
-                    //     };
-
-                    //     let result = Self::get_middle_flag_corner(result_flag);
-                    //     self.add_vertices_at_pos(
-                    //         &match result {
-                    //             0b1111 => vec![
-                    //                 [
-                    //                     UVec3 { x: 0, y: 0, z: 0 },
-                    //                     UVec3 { x: 0, y: 0, z: 1 },
-                    //                     UVec3 { x: 1, y: 0, z: 1 },
-                    //                 ],
-                    //                 [
-                    //                     UVec3 { x: 0, y: 0, z: 0 },
-                    //                     UVec3 { x: 1, y: 0, z: 1 },
-                    //                     UVec3 { x: 1, y: 0, z: 0 },
-                    //                 ],
-                    //             ],
-                    //             0b0100 => vec![[
-                    //                 UVec3 { x: 1, y: 0, z: 1 },
-                    //                 UVec3 { x: 1, y: 0, z: 0 },
-                    //                 UVec3 { x: 0, y: 0, z: 1 },
-                    //             ]],
-                    //             0b1000 => vec![[
-                    //                 UVec3 { x: 1, y: 0, z: 0 },
-                    //                 UVec3 { x: 0, y: 0, z: 0 },
-                    //                 UVec3 { x: 1, y: 0, z: 1 },
-                    //             ]],
-                    //             0b0001 => vec![[
-                    //                 UVec3 { x: 0, y: 0, z: 0 },
-                    //                 UVec3 { x: 0, y: 0, z: 1 },
-                    //                 UVec3 { x: 1, y: 0, z: 0 },
-                    //             ]],
-                    //             0b0010 => vec![[
-                    //                 UVec3 { x: 0, y: 0, z: 1 },
-                    //                 UVec3 { x: 1, y: 0, z: 1 },
-                    //                 UVec3 { x: 0, y: 0, z: 0 },
-                    //             ]],
-                    //             _ => vec![],
-                    //         },
-                    //         pos,
-                    //     );
-                    // }
-
                     // Top
                     {
                         let flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape_descriptor as usize]
-                            & 0b1111_0000 as u32)
+                            & (0b1111 << 4) as u32)
                             >> 4;
                         let top_shape_descriptor = if y == grid.size.y - 1 {
                             Shape::new(Rotation::FacingNorth0Degrees, Volume::ZeroSixth)
@@ -212,13 +169,6 @@ impl Mesher {
                         };
 
                         let result = Self::get_middle_flag_corner(result_flag);
-                        if result > 0 && result != 0b1111 {
-                            println!("{x} {y} {z}");
-                            println!("flag {:#18b}", flag);
-                            println!("top_flag {:#18b}", top_flag);
-                            println!("result_flag {:#18b}", result);
-                            println!("");
-                        }
                         self.add_vertices_at_pos(
                             &match result {
                                 0b1111 => vec![
@@ -233,16 +183,6 @@ impl Mesher {
                                         UVec3 { x: 1, y: 1, z: 1 },
                                     ],
                                 ],
-                                0b0100 => vec![[
-                                    UVec3 { x: 1, y: 1, z: 1 },
-                                    UVec3 { x: 0, y: 1, z: 1 },
-                                    UVec3 { x: 1, y: 1, z: 0 },
-                                ]],
-                                0b1000 => vec![[
-                                    UVec3 { x: 1, y: 1, z: 0 },
-                                    UVec3 { x: 1, y: 1, z: 1 },
-                                    UVec3 { x: 0, y: 1, z: 0 },
-                                ]],
                                 0b0001 => vec![[
                                     UVec3 { x: 0, y: 1, z: 0 },
                                     UVec3 { x: 1, y: 1, z: 0 },
@@ -253,89 +193,281 @@ impl Mesher {
                                     UVec3 { x: 0, y: 1, z: 0 },
                                     UVec3 { x: 1, y: 1, z: 1 },
                                 ]],
+                                0b0100 => vec![[
+                                    UVec3 { x: 1, y: 1, z: 1 },
+                                    UVec3 { x: 0, y: 1, z: 1 },
+                                    UVec3 { x: 1, y: 1, z: 0 },
+                                ]],
+                                0b1000 => vec![[
+                                    UVec3 { x: 1, y: 1, z: 0 },
+                                    UVec3 { x: 1, y: 1, z: 1 },
+                                    UVec3 { x: 0, y: 1, z: 0 },
+                                ]],
                                 _ => vec![],
                             },
                             pos,
                         );
                     }
 
-                    // Top
-                    // {
-                    //     let idx_mask = idx & TOP_FACE_MASK;
-                    //     let top_idx = if y == grid.size.y - 1 {
-                    //         0
-                    //     } else {
-                    //         let idx = grid.index_at_pos(pos + UVec3 { x: 0, y: 1, z: 0 });
-                    //         let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
-                    //         SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP
-                    //             [shape.to_shape_descriptor() as usize]
-                    //     };
-                    //     let top_idx_mask = (top_idx & BOTTOM_FACE_MASK) << 4;
-                    //     if top_idx_mask != TOP_FACE_MASK
-                    //         && VALID_TOP_FACES.contains(&top_idx_mask)
-                    //         && VALID_TOP_FACES.contains(&idx_mask)
-                    //     {
-                    //         let face_idx = idx_mask & !top_idx_mask;
-                    //         self.add_vertices_at_pos(
-                    //             &Y_EXTERIOR_FACE_LOOKUP[face_idx as usize],
-                    //             pos,
-                    //         );
-                    //     }
-                    // }
-                    // Bottom
-                    // {
-                    //     let idx_mask = idx & BOTTOM_FACE_MASK;
-                    // let bottom_idx = if y == 0 {
-                    //     0b1111_1111 // pretend it's a full block so bottom of the chunks doesn't get rendered
-                    // } else {
-                    //     let idx = grid.index_at_pos(pos - UVec3 { x: 0, y: 1, z: 0 });
-                    //     let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
-                    //     SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP
-                    //         [shape.to_shape_descriptor() as usize]
-                    // };
-                    //     let bottom_idx_mask = (bottom_idx & TOP_FACE_MASK) >> 4;
-                    //     if bottom_idx_mask != BOTTOM_FACE_MASK
-                    //         && VALID_BOTTOM_FACES.contains(&bottom_idx_mask)
-                    //         && VALID_BOTTOM_FACES.contains(&idx_mask)
-                    //     {
-                    //         let face_idx = idx_mask & !bottom_idx_mask;
-                    //         if x == 31 && y == 75 && z == 47 {
-                    //             println!("shape: {:?}", shape);
-                    //             println!("idx_mask: {:#10b}", idx_mask);
-                    //             println!("bottom_idx_mask: {:#10b}", bottom_idx_mask);
-                    //             println!("face_idx: {:#10b}", face_idx);
-                    //             println!("face_idx: {}", face_idx);
-                    //         }
-                    //         self.add_vertices_at_pos(
-                    //             &Y_EXTERIOR_FACE_LOOKUP[face_idx as usize],
-                    //             pos,
-                    //         );
-                    //     }
-                    // }
+                    // West
+                    {
+                        let flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape_descriptor as usize]
+                            & (0b1111 << 8) as u32)
+                            >> 8;
+                        let west_shape_descriptor = if x == grid.size.x - 1 {
+                            Shape::new(Rotation::FacingNorth0Degrees, Volume::ZeroSixth)
+                                .to_shape_descriptor() // pretend it's a full block so west of the chunks doesn't get rendered
+                        } else {
+                            let idx = grid.index_at_pos(pos + UVec3 { x: 1, y: 0, z: 0 });
+                            let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
+                            shape.to_shape_descriptor()
+                        };
+                        let west_flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP
+                            [west_shape_descriptor as usize]
+                            & (0b1111 << 16) as u32)
+                            >> 16;
+
+                        let result_flag = if flag == 0 {
+                            west_flag
+                        } else {
+                            !flag & west_flag
+                        };
+
+                        let result = Self::get_middle_flag_corner(result_flag);
+                        self.add_vertices_at_pos(
+                            &match result {
+                                0b1111 => vec![
+                                    [
+                                        UVec3 { x: 1, y: 0, z: 0 },
+                                        UVec3 { x: 1, y: 0, z: 1 },
+                                        UVec3 { x: 1, y: 1, z: 1 },
+                                    ],
+                                    [
+                                        UVec3 { x: 1, y: 0, z: 0 },
+                                        UVec3 { x: 1, y: 1, z: 1 },
+                                        UVec3 { x: 1, y: 1, z: 0 },
+                                    ],
+                                ],
+                                0b0001 => vec![[
+                                    UVec3 { x: 1, y: 0, z: 0 },
+                                    UVec3 { x: 1, y: 0, z: 1 },
+                                    UVec3 { x: 1, y: 1, z: 0 },
+                                ]],
+                                0b0010 => vec![[
+                                    UVec3 { x: 1, y: 1, z: 0 },
+                                    UVec3 { x: 1, y: 0, z: 0 },
+                                    UVec3 { x: 1, y: 1, z: 1 },
+                                ]],
+                                0b0100 => vec![[
+                                    UVec3 { x: 1, y: 1, z: 1 },
+                                    UVec3 { x: 1, y: 1, z: 0 },
+                                    UVec3 { x: 1, y: 0, z: 1 },
+                                ]],
+                                0b1000 => vec![[
+                                    UVec3 { x: 1, y: 0, z: 1 },
+                                    UVec3 { x: 1, y: 1, z: 1 },
+                                    UVec3 { x: 1, y: 0, z: 0 },
+                                ]],
+                                _ => vec![],
+                            },
+                            pos,
+                        );
+                    }
+
+                    // East
+                    {
+                        let flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape_descriptor as usize]
+                            & (0b1111 << 16) as u32)
+                            >> 16;
+                        let east_shape_descriptor = if x == 0 {
+                            Shape::new(Rotation::FacingNorth0Degrees, Volume::ZeroSixth)
+                                .to_shape_descriptor() // pretend it's a full block so east of the chunks doesn't get rendered
+                        } else {
+                            let idx = grid.index_at_pos(pos - UVec3 { x: 1, y: 0, z: 0 });
+                            let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
+                            shape.to_shape_descriptor()
+                        };
+                        let east_flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP
+                            [east_shape_descriptor as usize]
+                            & (0b1111 << 8) as u32)
+                            >> 8;
+
+                        let result_flag = if flag == 0 {
+                            east_flag
+                        } else {
+                            !flag & east_flag
+                        };
+
+                        let result = Self::get_middle_flag_corner(result_flag);
+                        self.add_vertices_at_pos(
+                            &match result {
+                                0b1111 => vec![
+                                    [
+                                        UVec3 { x: 0, y: 0, z: 0 },
+                                        UVec3 { x: 0, y: 1, z: 1 },
+                                        UVec3 { x: 0, y: 0, z: 1 },
+                                    ],
+                                    [
+                                        UVec3 { x: 0, y: 0, z: 0 },
+                                        UVec3 { x: 0, y: 1, z: 0 },
+                                        UVec3 { x: 0, y: 1, z: 1 },
+                                    ],
+                                ],
+                                0b0001 => vec![[
+                                    UVec3 { x: 0, y: 0, z: 0 },
+                                    UVec3 { x: 0, y: 1, z: 0 },
+                                    UVec3 { x: 0, y: 0, z: 1 },
+                                ]],
+                                0b0010 => vec![[
+                                    UVec3 { x: 0, y: 1, z: 0 },
+                                    UVec3 { x: 0, y: 1, z: 1 },
+                                    UVec3 { x: 0, y: 0, z: 0 },
+                                ]],
+                                0b0100 => vec![[
+                                    UVec3 { x: 0, y: 1, z: 1 },
+                                    UVec3 { x: 0, y: 0, z: 1 },
+                                    UVec3 { x: 0, y: 1, z: 0 },
+                                ]],
+                                0b1000 => vec![[
+                                    UVec3 { x: 0, y: 0, z: 1 },
+                                    UVec3 { x: 0, y: 0, z: 0 },
+                                    UVec3 { x: 0, y: 1, z: 1 },
+                                ]],
+                                _ => vec![],
+                            },
+                            pos,
+                        );
+                    }
+
+                    // North
+                    {
+                        let flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape_descriptor as usize]
+                            & (0b1111 << 20) as u32)
+                            >> 20;
+                        let north_shape_descriptor = if z == grid.size.z - 1 {
+                            Shape::new(Rotation::FacingNorth0Degrees, Volume::ZeroSixth)
+                                .to_shape_descriptor() // pretend it's a full block so north of the chunks doesn't get rendered
+                        } else {
+                            let idx = grid.index_at_pos(pos + UVec3 { x: 0, y: 0, z: 1 });
+                            let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
+                            shape.to_shape_descriptor()
+                        };
+                        let north_flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP
+                            [north_shape_descriptor as usize]
+                            & (0b1111 << 12) as u32)
+                            >> 12;
+
+                        let result_flag = if flag == 0 {
+                            north_flag
+                        } else {
+                            !flag & north_flag
+                        };
+
+                        let result = Self::get_middle_flag_corner(result_flag);
+                        self.add_vertices_at_pos(
+                            &match result {
+                                0b1111 => vec![
+                                    [
+                                        UVec3 { x: 0, y: 0, z: 1 },
+                                        UVec3 { x: 1, y: 1, z: 1 },
+                                        UVec3 { x: 1, y: 0, z: 1 },
+                                    ],
+                                    [
+                                        UVec3 { x: 0, y: 0, z: 1 },
+                                        UVec3 { x: 0, y: 1, z: 1 },
+                                        UVec3 { x: 1, y: 1, z: 1 },
+                                    ],
+                                ],
+                                0b0001 => vec![[
+                                    UVec3 { x: 0, y: 0, z: 1 },
+                                    UVec3 { x: 0, y: 1, z: 1 },
+                                    UVec3 { x: 1, y: 0, z: 1 },
+                                ]],
+                                0b0010 => vec![[
+                                    UVec3 { x: 1, y: 0, z: 1 },
+                                    UVec3 { x: 0, y: 0, z: 1 },
+                                    UVec3 { x: 1, y: 1, z: 1 },
+                                ]],
+                                0b0100 => vec![[
+                                    UVec3 { x: 1, y: 1, z: 1 },
+                                    UVec3 { x: 1, y: 0, z: 1 },
+                                    UVec3 { x: 0, y: 1, z: 1 },
+                                ]],
+                                0b1000 => vec![[
+                                    UVec3 { x: 0, y: 1, z: 1 },
+                                    UVec3 { x: 1, y: 1, z: 1 },
+                                    UVec3 { x: 0, y: 0, z: 1 },
+                                ]],
+                                _ => vec![],
+                            },
+                            pos,
+                        );
+                    }
 
                     // South
-                    // {
-                    //     let idx_mask = idx & NORTH_FACE_MASK;
-                    //     let north_idx = if z == 0 {
-                    //         0
-                    //     } else {
-                    //         let idx = grid.index_at_pos(pos - UVec3 { x: 0, y: 0, z: 1 });
-                    //         let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
-                    //         SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP
-                    //             [shape.to_shape_descriptor() as usize]
-                    //     };
-                    //     let north_idx_mask = (north_idx & NORTH_FACE_MASK) << 4;
-                    //     if north_idx_mask != TOP_FACE_MASK
-                    //         && VALID_NORTH_FACES.contains(&north_idx_mask)
-                    //         && VALID_NORTH_FACES.contains(&idx_mask)
-                    //     {
-                    //         let face_idx = idx_mask & !north_idx_mask;
-                    //         self.add_vertices_at_pos(
-                    //             &Y_EXTERIOR_FACE_LOOKUP[face_idx as usize],
-                    //             pos,
-                    //         );
-                    //     }
-                    // }
+                    {
+                        let flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP[shape_descriptor as usize]
+                            & (0b1111 << 12) as u32)
+                            >> 12;
+                        let south_shape_descriptor = if z == 0 {
+                            Shape::new(Rotation::FacingNorth0Degrees, Volume::ZeroSixth)
+                                .to_shape_descriptor() // pretend it's a full block so south of the chunks doesn't get rendered
+                        } else {
+                            let idx = grid.index_at_pos(pos - UVec3 { x: 0, y: 0, z: 1 });
+                            let shape = &BLOCK_INDEX_TO_SHAPE_MAP[idx as usize];
+                            shape.to_shape_descriptor()
+                        };
+                        let south_flag = (SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP
+                            [south_shape_descriptor as usize]
+                            & (0b1111 << 20) as u32)
+                            >> 20;
+
+                        let result_flag = if flag == 0 {
+                            south_flag
+                        } else {
+                            !flag & south_flag
+                        };
+
+                        let result = Self::get_middle_flag_corner(result_flag);
+                        self.add_vertices_at_pos(
+                            &match result {
+                                0b1111 => vec![
+                                    [
+                                        UVec3 { x: 0, y: 0, z: 0 },
+                                        UVec3 { x: 1, y: 0, z: 0 },
+                                        UVec3 { x: 1, y: 1, z: 0 },
+                                    ],
+                                    [
+                                        UVec3 { x: 0, y: 0, z: 0 },
+                                        UVec3 { x: 1, y: 1, z: 0 },
+                                        UVec3 { x: 0, y: 1, z: 0 },
+                                    ],
+                                ],
+                                0b0001 => vec![[
+                                    UVec3 { x: 0, y: 0, z: 0 },
+                                    UVec3 { x: 1, y: 0, z: 0 },
+                                    UVec3 { x: 0, y: 1, z: 0 },
+                                ]],
+                                0b0010 => vec![[
+                                    UVec3 { x: 1, y: 0, z: 0 },
+                                    UVec3 { x: 1, y: 1, z: 0 },
+                                    UVec3 { x: 0, y: 0, z: 0 },
+                                ]],
+                                0b0100 => vec![[
+                                    UVec3 { x: 1, y: 1, z: 0 },
+                                    UVec3 { x: 0, y: 1, z: 0 },
+                                    UVec3 { x: 1, y: 0, z: 0 },
+                                ]],
+                                0b1000 => vec![[
+                                    UVec3 { x: 0, y: 1, z: 0 },
+                                    UVec3 { x: 0, y: 0, z: 0 },
+                                    UVec3 { x: 1, y: 1, z: 0 },
+                                ]],
+                                _ => vec![],
+                            },
+                            pos,
+                        );
+                    }
                 }
             }
         }
@@ -449,8 +581,8 @@ impl Grid {
         }
     }
 
-    pub fn generate(mut self, generator: &impl ChunkGenerator) -> Self {
-        generator.generate(&mut self);
+    pub fn generate(mut self, origin: IVec3, generator: &impl ChunkGenerator) -> Self {
+        generator.generate(origin, &mut self);
         self
     }
 

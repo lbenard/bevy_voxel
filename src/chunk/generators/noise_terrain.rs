@@ -2,10 +2,16 @@ use bevy::prelude::{IVec3, UVec3};
 use interpolation::lerp;
 use noise::{NoiseFn, OpenSimplex};
 
-use crate::terrain::{
-    block::{Volume, BLOCK_INDEX_TO_SHAPE_MAP},
+use crate::{
     chunk::Grid,
-    generator::ChunkGenerator,
+    terrain::{
+        block::{
+            material::{Material, DIRT, GRASS, STONE},
+            shape::{Shape, Volume, BLOCK_INDEX_TO_SHAPE_MAP},
+            Block,
+        },
+        generator::ChunkGenerator,
+    },
 };
 
 pub struct NoiseTerrain {
@@ -20,24 +26,13 @@ impl NoiseTerrain {
     }
 }
 
-// impl ChunkGenerator for NoiseTerrain {
-//     fn generate(&self, chunk: &mut Grid) {
-//         for x in 0..=chunk.size.x {
-//             for z in 0..=chunk.size.z {
-//                 let height = (self.noise.get([(x as f64) / 16.0, (z as f64) / 16.0]) + 1.0) / 2.0;
-//                 for y in 0..(2.0 + height * 16.0) as u32 {
-//                     let idx = chunk.pos_idx(UVec3 { x, y, z });
-//                     chunk.blocks[idx] = true;
-//                 }
-//             }
-//         }
-//     }
-// }
 impl ChunkGenerator for NoiseTerrain {
     fn generate(&self, origin: IVec3, chunk: &mut Grid) {
         for x in 0..chunk.size.x {
-            for y in 0..chunk.size.y {
-                for z in 0..chunk.size.z {
+            for z in 0..chunk.size.z {
+                let mut top_block: Option<Block> = None;
+
+                for y in (0..chunk.size.y).rev() {
                     let lower_height_treshold = lerp(
                         &-1.0,
                         &1.0,
@@ -101,11 +96,32 @@ impl ChunkGenerator for NoiseTerrain {
                     let grid_index = chunk.pos_idx(UVec3 { x, y, z });
 
                     // Fill invalid blocks with empty or full blocks depending on the index
-                    let shape = &BLOCK_INDEX_TO_SHAPE_MAP[index as usize];
+                    let mut shape = BLOCK_INDEX_TO_SHAPE_MAP[index as usize];
                     if shape.volume == Volume::ZeroSixth && index > 0 {
-                        index = if index.count_ones() > 4 { 255 } else { 0 };
+                        shape = if index.count_ones() > 4 {
+                            Shape::FULL
+                        } else {
+                            Shape::EMPTY
+                        };
                     }
-                    chunk.blocks[grid_index] = index;
+                    let block = if shape.volume == Volume::ZeroSixth {
+                        None
+                    } else {
+                        let material = if let Some(top_block) = top_block {
+                            if top_block.material == GRASS {
+                                DIRT
+                            } else if top_block.material == DIRT {
+                                STONE
+                            } else {
+                                STONE
+                            }
+                        } else {
+                            GRASS
+                        };
+                        Some(Block { shape, material })
+                    };
+                    chunk.blocks[grid_index] = block;
+                    top_block = block;
                 }
             }
         }

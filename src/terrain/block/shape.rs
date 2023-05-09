@@ -2,8 +2,28 @@ use std::sync::LazyLock;
 
 use bevy::prelude::{EulerRot, Mat4, UVec3, Vec3};
 
-use super::chunk::BlockIndex;
+use crate::chunk::BlockIndex;
 
+// North: 0b1100_1100
+// South: 0b0011_0011
+// Top: 0b1111_0000
+// Bottom: 0b0000_1111
+// West: 0b1010_1010
+// East: 0b0101_0101
+
+// Face flag rotation order per direction:
+// x: 0 -> 4 -> 6 -> 2 or 1 -> 5 -> 7 -> 3
+// y: 0 -> 2 -> 3 -> 1 or 4 -> 6 -> 7 -> 5
+// z: 0 -> 1 -> 5 -> 4 or 2 -> 3 -> 7 -> 6
+//  Cube layout:
+//       7----6
+//      /|   /|
+//     5-+--4 |
+//     | |  | |       y
+//     | 3--+-2       | z
+//     |/   |/     x__|/
+//     1----0
+//
 type BlockDescriptor = u8;
 type GridIndex = u8;
 

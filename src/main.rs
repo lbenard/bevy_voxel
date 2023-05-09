@@ -2,20 +2,26 @@
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    prelude::*,
+    prelude::{shape::Cube, *},
+    render,
     window::PresentMode,
 };
-use bevy_inspector_egui::{bevy_egui, quick::WorldInspectorPlugin, DefaultInspectorConfigPlugin};
-use plugins::{debug::DebugPlugin, player::PlayerPlugin, terrain::TerrainPlugin};
-use terrain::block::{Rotation, Shape, Volume};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use debug::DebugPlugin;
+use environment::EnvironmentPlugin;
+use player::PlayerPlugin;
+use terrain::TerrainPlugin;
 
-mod plugins;
+mod chunk;
+mod debug;
+mod environment;
+mod player;
 mod terrain;
 
 #[bevy_main]
 fn main() {
-    let shape = Shape::new(Rotation::FacingNorth0Degrees, Volume::SixSixth).to_shape_descriptor();
     let mut app = App::new();
+
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         window: WindowDescriptor {
             width: 1920.0,
@@ -25,13 +31,35 @@ fn main() {
         },
         ..default()
     }));
-    app.add_plugin(TerrainPlugin).add_plugin(PlayerPlugin);
+
+    app.add_startup_system(setup_system);
+
+    app.add_plugin(TerrainPlugin)
+        .add_plugin(PlayerPlugin)
+        .add_plugin(EnvironmentPlugin::with_atmosphere())
+        .insert_resource(Msaa { samples: 1 });
 
     // #[cfg(debug_assertions)]
     app.add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(DebugPlugin)
+        // .add_plugin(DebugPlugin)
         .add_plugin(WorldInspectorPlugin);
 
     app.run();
+}
+
+fn setup_system(mut commands: Commands, mut meshes: ResMut<Assets<render::mesh::Mesh>>) {
+    // commands.spawn(Camera3dBundle {
+    //     transform: Transform::from_translation(Vec3::new(2.0, 2.0, 4.0))
+    //         .looking_at(Vec3::ZERO, Vec3::Y),
+    //     ..default()
+    // });
+    let cube = Cube::new(1.0);
+
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(render::mesh::Mesh::from(cube)),
+        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)),
+        // add material with texture
+        ..default()
+    });
 }

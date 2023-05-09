@@ -6,12 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.9"
-bevy_flycam = "0.9"
+bevy = "0.9.1"
+# bevy_flycam = "0.9"
 bevy-inspector-egui = "0.17"
+bevy_atmosphere = "0.5"
+bevy_spectator = "0.1.1"
 egui_dock = "0.4"
 egui-gizmo = "0.10"
 noise = "0.7"
 rayon = "1.5"
 interpolation = "*"
 futures-lite = "1.11.3"
+rand = "0.8.5"

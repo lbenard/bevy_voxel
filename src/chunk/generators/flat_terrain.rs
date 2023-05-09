@@ -1,6 +1,6 @@
 use bevy::prelude::{IVec3, UVec3};
 
-use crate::terrain::{chunk::Grid, generator::ChunkGenerator};
+use crate::{chunk::Grid, terrain::generator::ChunkGenerator};
 
 pub struct FlatTerrain;
 
@@ -17,9 +17,6 @@ impl ChunkGenerator for FlatTerrain {
                 for y in 0..x + 1 {
                     let idx = chunk.pos_idx(UVec3 { x, y, z });
                     chunk.blocks[idx] = 0b1111_1111;
-                    if y == x {
-                        chunk.blocks[idx] = 0b0110_1111;
-                    }
                 }
             }
         }

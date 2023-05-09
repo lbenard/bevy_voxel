@@ -1,6 +1,6 @@
 use bevy::prelude::IVec3;
 
-use super::chunk::{BlockIndex, Grid};
+use crate::chunk::{BlockIndex, Grid};
 
 pub trait ChunkGenerator {
     fn generate(&self, origin: IVec3, chunk: &mut Grid);

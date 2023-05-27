@@ -1,19 +1,17 @@
-use bevy::prelude::{Component, IVec2, IVec3, UVec3};
+use bevy::prelude::{Component, IVec3, UVec3};
 
 use crate::terrain::{block::Block, generator::ChunkGenerator};
 
 pub mod generators;
+pub mod mesh;
 
-pub const CHUNK_SIZE: UVec3 = UVec3::new(64, 64, 64);
+pub const CHUNK_SIZE: UVec3 = UVec3::new(32, 128, 32);
 
 #[derive(Component)]
-pub struct Chunk; // {
-                  // pub coordinates: IVec3,
-                  // pub blocks
-                  // }
+pub struct Chunk;
 
 #[derive(Component, PartialEq)]
-pub struct ChunkCoordinates(pub IVec2);
+pub struct ChunkCoordinates(pub IVec3);
 
 /// Describe the chunk loading state.
 /// A chunk is `Loading` at creation, `Loaded` when generated but not displayed, and `Rendered` when generated and displayed.
@@ -30,14 +28,17 @@ pub type BlockIndex = u8;
 
 pub struct Grid {
     pub size: UVec3,
+    pub extended_size: UVec3,
     pub blocks: Vec<Option<Block>>,
 }
 
 impl Grid {
     pub fn new(size: UVec3) -> Self {
-        let capacity = size.x * size.y * size.z;
+        let extended_size = size + UVec3::new(2, 2, 2);
+        let capacity = extended_size.x * extended_size.y * extended_size.z;
         Grid {
             size,
+            extended_size,
             blocks: vec![None; capacity as usize],
         }
     }
@@ -47,11 +48,18 @@ impl Grid {
         self
     }
 
-    pub fn block_at_pos(&self, pos: UVec3) -> Option<Block> {
-        self.blocks[self.pos_idx(pos)]
+    pub fn block_at_pos(&self, pos: IVec3) -> Option<Block> {
+        let pos = pos + IVec3::ONE;
+        let idx = self.pos_idx(pos.as_uvec3());
+        if idx >= self.blocks.len() {
+            return None;
+        }
+        self.blocks[idx]
     }
 
     pub const fn pos_idx(&self, pos: UVec3) -> usize {
-        ((self.size.z * self.size.x * pos.y) + (self.size.z * pos.x) + pos.z) as usize
+        ((self.extended_size.y * self.extended_size.z * pos.x)
+            + (self.extended_size.y * pos.z)
+            + pos.y) as usize
     }
 }

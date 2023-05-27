@@ -1,16 +1,16 @@
 #![feature(lazy_cell)]
 
 use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    core::TaskPoolThreadAssignmentPolicy,
+    diagnostic::FrameTimeDiagnosticsPlugin,
     prelude::{shape::Cube, *},
     render,
     window::PresentMode,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use debug::DebugPlugin;
 use environment::EnvironmentPlugin;
 use player::PlayerPlugin;
-use terrain::TerrainPlugin;
+use terrain::{material::TerrainMaterial, TerrainPlugin};
 
 mod chunk;
 mod debug;
@@ -22,28 +22,40 @@ mod terrain;
 fn main() {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        window: WindowDescriptor {
-            width: 1920.0,
-            height: 1080.0,
-            present_mode: PresentMode::Immediate,
-            ..default()
-        },
-        ..default()
-    }));
-
     app.add_startup_system(setup_system);
 
-    app.add_plugin(TerrainPlugin)
-        .add_plugin(PlayerPlugin)
-        .add_plugin(EnvironmentPlugin::with_atmosphere())
-        .insert_resource(Msaa { samples: 1 });
+    app.add_plugins(
+        DefaultPlugins
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: (1920.0, 1080.0).into(),
+                    present_mode: PresentMode::Immediate,
+                    ..default()
+                }),
+                ..default()
+            })
+            .set(TaskPoolPlugin {
+                task_pool_options: TaskPoolOptions {
+                    async_compute: TaskPoolThreadAssignmentPolicy {
+                        min_threads: 1,
+                        max_threads: std::usize::MAX,
+                        percent: 1.0,
+                    },
+                    ..default()
+                },
+                ..default()
+            }),
+    )
+    .add_plugin(TerrainPlugin)
+    .add_plugin(MaterialPlugin::<TerrainMaterial>::default())
+    .add_plugin(PlayerPlugin)
+    .add_plugin(EnvironmentPlugin::new());
 
     // #[cfg(debug_assertions)]
     app.add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
+        // .add_plugin(LogDiagnosticsPlugin::default())
         // .add_plugin(DebugPlugin)
-        .add_plugin(WorldInspectorPlugin);
+        .add_plugin(WorldInspectorPlugin::new());
 
     app.run();
 }

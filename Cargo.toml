@@ -6,11 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.9.1"
-# bevy_flycam = "0.9"
-bevy-inspector-egui = "0.17"
-bevy_atmosphere = "0.5"
-bevy_spectator = "0.1.1"
+bevy = "0.10.1"
+bevy-inspector-egui = "0.18"
+bevy_atmosphere = "0.6"
+bevy_spectator = { git = "https://github.com/JonahPlusPlus/bevy_spectator.git", rev = "d62d0be"}
+bevy_mod_raycast = "0.8"
 egui_dock = "0.4"
 egui-gizmo = "0.10"
 noise = "0.7"
@@ -18,3 +18,4 @@ rayon = "1.5"
 interpolation = "*"
 futures-lite = "1.11.3"
 rand = "0.8.5"
+bitflags = "1.2"

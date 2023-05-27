@@ -1,17 +1,23 @@
 use bevy::{
     prelude::*,
+    render::texture::ImageSampler,
     tasks::{AsyncComputeTaskPool, Task},
 };
+use bevy_mod_raycast::RaycastMesh;
 use futures_lite::future;
 
-use crate::chunk::{
-    generators::noise_terrain::NoiseTerrain, Chunk, ChunkCoordinates, ChunkState, Grid, CHUNK_SIZE,
+use crate::{
+    chunk::{
+        generators::noise_terrain::NoiseTerrain, mesh::ChunkMesh, Chunk, ChunkCoordinates,
+        ChunkState, Grid, CHUNK_SIZE,
+    },
+    terrain::TerrainRaycastSet,
 };
 
-use super::chunk_mesher::Mesher;
+use super::material::TerrainMaterial;
 
 struct ComputeChunkResult {
-    absolute_position: IVec2,
+    absolute_position: IVec3,
     mesh: Mesh,
 }
 
@@ -19,45 +25,49 @@ struct ComputeChunkResult {
 pub(self) struct ComputeChunk(Task<ComputeChunkResult>);
 
 pub struct ChunkLoaderPlugin {
-    render_distance: u32,
+    load_distance: u32,
+    unload_distance: u32,
 }
 
 impl ChunkLoaderPlugin {
-    pub fn new(render_distance: u32) -> Self {
-        Self { render_distance }
+    pub fn new(load_distance: u32, unload_distance: u32) -> Self {
+        Self {
+            load_distance,
+            unload_distance,
+        }
     }
 
     fn load_chunks(
         mut commands: Commands,
         source: Query<(&Transform, &ChunkLoaderSource)>,
-        chunks: Query<(Entity, &Chunk, &ChunkCoordinates, &mut ChunkState)>,
+        chunks: Query<(Entity, &Chunk, &ChunkCoordinates)>,
         render_distance: Res<RenderDistance>,
     ) {
         let thread_pool = AsyncComputeTaskPool::get();
 
-        let render_distance = render_distance.render_distance as i32;
+        let load_distance = render_distance.load_distance as i32;
         let Ok((source_transform, _)) = source.get_single() else { return };
-        let source_coordinates = Vec2::new(
+        let source_coordinates = Vec3::new(
             source_transform.translation.x / CHUNK_SIZE.x as f32,
+            0.0,
             source_transform.translation.z / CHUNK_SIZE.z as f32,
         );
         let current_chunk = (source_transform.translation / CHUNK_SIZE.as_vec3()).as_ivec3();
 
-        for x in (current_chunk.x - render_distance)..(current_chunk.x + render_distance) {
-            for z in (current_chunk.z - render_distance)..(current_chunk.z + render_distance) {
-                let chunk_coordinates = IVec2::new(x, z);
-                let chunk_middle = chunk_coordinates.as_vec2() + Vec2::ONE / 2.0;
+        // Load chunks
+        for x in (current_chunk.x - load_distance)..(current_chunk.x + load_distance) {
+            for z in (current_chunk.z - load_distance)..(current_chunk.z + load_distance) {
+                let chunk_coordinates = IVec3::new(x, 0, z);
+                let chunk_middle = chunk_coordinates.as_vec3() + Vec3::ONE / 2.0;
                 let distance_squared = (chunk_middle - source_coordinates).length_squared();
 
-                if distance_squared < (render_distance * render_distance) as f32 {
+                if distance_squared < (load_distance * load_distance) as f32 {
                     let chunk = Self::get_chunk(&chunks, ChunkCoordinates(chunk_coordinates));
-                    if let Some(_entity) = chunk {
-                        // TODO: unload those fuckers
-                        // if *state != ChunkState::Loaded {
-                        //     commands.entity(entity).insert(ChunkState::Loaded);
-                        // }
-                    } else {
-                        info!("Generating chunk at {x} {z}");
+                    if chunk.is_none() {
+                        info!(
+                            "Generating chunk at {} {}",
+                            chunk_coordinates.x, chunk_coordinates.z
+                        );
                         let task = Self::new_chunk_task(thread_pool, chunk_coordinates);
                         commands.spawn((
                             Chunk,
@@ -69,6 +79,22 @@ impl ChunkLoaderPlugin {
                 }
             }
         }
+
+        // Unload chunks
+        for (entity, _, ChunkCoordinates(chunk_coordinates)) in &mut chunks.iter() {
+            let chunk_middle = chunk_coordinates.as_vec3() + Vec3::ONE / 2.0;
+            let distance_squared = (chunk_middle - source_coordinates).length_squared();
+
+            if distance_squared
+                > (render_distance.unload_distance * render_distance.unload_distance) as f32
+            {
+                info!(
+                    "Unloading chunk at {} {}",
+                    chunk_coordinates.x, chunk_coordinates.z
+                );
+                commands.entity(entity).despawn();
+            }
+        }
     }
 
     fn handle_chunk_tasks(
@@ -76,9 +102,9 @@ impl ChunkLoaderPlugin {
         mut chunk_tasks: Query<(Entity, &mut ComputeChunk)>,
         mut chunk_states: Query<(Entity, &mut ChunkState)>,
         mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
+        mut materials: ResMut<Assets<TerrainMaterial>>,
     ) {
-        let mut material: StandardMaterial = Color::rgb(0.0, 0.6, 0.1).into();
+        let mut material: TerrainMaterial = Color::rgb(1.0, 1.0, 1.0).into();
         material.metallic = 0.0;
         material.reflectance = 0.0;
         material.perceptual_roughness = 1.0;
@@ -89,51 +115,75 @@ impl ChunkLoaderPlugin {
                     "Spawning chunk at {} {}",
                     chunk.absolute_position.x, chunk.absolute_position.y
                 );
-                commands.entity(entity).insert(PbrBundle {
-                    mesh: meshes.add(chunk.mesh),
-                    material: materials.add(material.clone()),
-                    transform: Transform::from_xyz(
-                        chunk.absolute_position.x as f32,
-                        0.0,
-                        chunk.absolute_position.y as f32,
-                    ),
-                    ..default()
-                });
+                if let Some(mut entity_command) = commands.get_entity(entity) {
+                    entity_command.insert((
+                        MaterialMeshBundle {
+                            mesh: meshes.add(chunk.mesh),
+                            material: materials.add(material.clone()),
+                            transform: Transform::from_xyz(
+                                chunk.absolute_position.x as f32,
+                                chunk.absolute_position.y as f32,
+                                chunk.absolute_position.z as f32,
+                            ),
+                            ..default()
+                        },
+                        RaycastMesh::<TerrainRaycastSet>::default(),
+                    ));
 
-                commands.entity(entity).remove::<ComputeChunk>();
-                *chunk_states.get_mut(entity).unwrap().1 = ChunkState::Rendered;
+                    commands.entity(entity).remove::<ComputeChunk>();
+                    *chunk_states.get_mut(entity).unwrap().1 = ChunkState::Rendered;
+                }
+            }
+        }
+    }
+
+    fn set_images_to_nearest(
+        mut ev_asset: EventReader<AssetEvent<Image>>,
+        mut assets: ResMut<Assets<Image>>,
+    ) {
+        for ev in ev_asset.iter() {
+            match ev {
+                AssetEvent::Created { handle } => {
+                    if let Some(image) = assets.get_mut(handle) {
+                        image.sampler_descriptor = ImageSampler::nearest();
+                    }
+                }
+                _ => {}
             }
         }
     }
 
     fn get_chunk(
-        query: &Query<(Entity, &Chunk, &ChunkCoordinates, &mut ChunkState)>,
+        query: &Query<(Entity, &Chunk, &ChunkCoordinates)>,
         position: ChunkCoordinates,
     ) -> Option<Entity> {
         query
             .iter()
-            .find(|(_, ref _chunk, ref chunk_position, ref _chunk_state)| {
-                **chunk_position == position
-            })
-            .map(|(entity, ref _chunk, ref _chunk_position, ref _chunk_state)| entity)
+            .find(|(_, ref _chunk, ref chunk_position)| **chunk_position == position)
+            .map(|(entity, ref _chunk, ref _chunk_position)| entity)
     }
 
     fn new_chunk_task(
         thread_pool: &AsyncComputeTaskPool,
-        chunk_coordinates: IVec2,
+        chunk_coordinates: IVec3,
     ) -> Task<ComputeChunkResult> {
         thread_pool.spawn(async move {
             let generator = NoiseTerrain::new();
-            let absolute_position = IVec2::new(
+            let absolute_position = IVec3::new(
                 chunk_coordinates.x * CHUNK_SIZE.x as i32,
-                chunk_coordinates.y * CHUNK_SIZE.z as i32,
+                chunk_coordinates.y * CHUNK_SIZE.y as i32,
+                chunk_coordinates.z * CHUNK_SIZE.z as i32,
             );
             let grid = Grid::new(CHUNK_SIZE).generate(
-                IVec3::new(absolute_position.x, 0, absolute_position.y),
+                IVec3::new(
+                    absolute_position.x,
+                    absolute_position.y,
+                    absolute_position.z,
+                ),
                 &generator,
             );
 
-            let mesh = Mesher::new().mesh_grid(&grid).mesh();
+            let mesh = ChunkMesh::new().mesh_grid(&grid).mesh();
             ComputeChunkResult {
                 mesh,
                 absolute_position,
@@ -146,8 +196,10 @@ impl Plugin for ChunkLoaderPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(Self::load_chunks)
             .add_system(Self::handle_chunk_tasks)
+            .add_system(Self::set_images_to_nearest)
             .insert_resource(RenderDistance {
-                render_distance: self.render_distance,
+                load_distance: self.load_distance,
+                unload_distance: self.unload_distance,
             });
     }
 }
@@ -157,5 +209,6 @@ pub struct ChunkLoaderSource;
 
 #[derive(Resource)]
 pub struct RenderDistance {
-    pub render_distance: u32,
+    pub load_distance: u32,
+    pub unload_distance: u32,
 }

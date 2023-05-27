@@ -24,8 +24,6 @@ use crate::chunk::BlockIndex;
 //     |/   |/     x__|/
 //     1----0
 //
-type BlockDescriptor = u8;
-type GridIndex = u8;
 
 // Towards +y
 pub const TOP_FACE_MASK: u8 = 0b1111_0000;
@@ -57,22 +55,18 @@ pub enum Volume {
     SixSixth,
 }
 
-impl TryFrom<u8> for Volume {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        [
-            Self::ZeroSixth,
-            Self::OneSixth,
-            Self::TwoSixth,
-            Self::ThreeSixth,
-            Self::FourSixth,
-            Self::FiveSixth,
-            Self::SixSixth,
-        ]
-        .get(value as usize)
-        .ok_or_else(|| ())
-        .map(|v| *v)
+impl From<u8> for Volume {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Self::ZeroSixth,
+            1 => Self::OneSixth,
+            2 => Self::TwoSixth,
+            3 => Self::ThreeSixth,
+            4 => Self::FourSixth,
+            5 => Self::FiveSixth,
+            6 => Self::SixSixth,
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -137,39 +131,35 @@ pub enum Rotation {
     FacingBottom270Degrees,
 }
 
-impl TryFrom<u8> for Rotation {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        [
-            Self::FacingNorth0Degrees,
-            Self::FacingNorth90Degrees,
-            Self::FacingNorth180Degrees,
-            Self::FacingNorth270Degrees,
-            Self::FacingEast0Degrees,
-            Self::FacingEast90Degrees,
-            Self::FacingEast180Degrees,
-            Self::FacingEast270Degrees,
-            Self::FacingSouth0Degrees,
-            Self::FacingSouth90Degrees,
-            Self::FacingSouth180Degrees,
-            Self::FacingSouth270Degrees,
-            Self::FacingWest0Degrees,
-            Self::FacingWest90Degrees,
-            Self::FacingWest180Degrees,
-            Self::FacingWest270Degrees,
-            Self::FacingTop0Degrees,
-            Self::FacingTop90Degrees,
-            Self::FacingTop180Degrees,
-            Self::FacingTop270Degrees,
-            Self::FacingBottom0Degrees,
-            Self::FacingBottom90Degrees,
-            Self::FacingBottom180Degrees,
-            Self::FacingBottom270Degrees,
-        ]
-        .get(value as usize)
-        .ok_or_else(|| ())
-        .map(|v| *v)
+impl From<u8> for Rotation {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Self::FacingNorth0Degrees,
+            1 => Self::FacingNorth90Degrees,
+            2 => Self::FacingNorth180Degrees,
+            3 => Self::FacingNorth270Degrees,
+            4 => Self::FacingEast0Degrees,
+            5 => Self::FacingEast90Degrees,
+            6 => Self::FacingEast180Degrees,
+            7 => Self::FacingEast270Degrees,
+            8 => Self::FacingSouth0Degrees,
+            9 => Self::FacingSouth90Degrees,
+            10 => Self::FacingSouth180Degrees,
+            11 => Self::FacingSouth270Degrees,
+            12 => Self::FacingWest0Degrees,
+            13 => Self::FacingWest90Degrees,
+            14 => Self::FacingWest180Degrees,
+            15 => Self::FacingWest270Degrees,
+            16 => Self::FacingTop0Degrees,
+            17 => Self::FacingTop90Degrees,
+            18 => Self::FacingTop180Degrees,
+            19 => Self::FacingTop270Degrees,
+            20 => Self::FacingBottom0Degrees,
+            21 => Self::FacingBottom90Degrees,
+            22 => Self::FacingBottom180Degrees,
+            23 => Self::FacingBottom270Degrees,
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -193,13 +183,13 @@ impl Shape {
     pub fn new(rotation: Rotation, volume: Volume) -> Self {
         Self { rotation, volume }
     }
+}
 
-    pub fn to_shape_descriptor(&self) -> BlockDescriptor {
-        (self.volume as u8) << 5 | self.rotation as u8
-    }
+pub struct ShapeDescriptor(pub u8);
 
-    pub fn to_grid_index(&self) -> GridIndex {
-        SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP[self.to_shape_descriptor() as usize]
+impl From<Shape> for ShapeDescriptor {
+    fn from(shape: Shape) -> Self {
+        Self((shape.volume as u8) << 5 | shape.rotation as u8)
     }
 }
 
@@ -345,8 +335,6 @@ pub static SIX_SIXTH_VERTEX_LIST: LazyLock<Vec<UVec3>> = LazyLock::new(|| {
     ]
 });
 
-static SIX_SIXTH_INTERIOR_VERTICES: LazyLock<Vec<[UVec3; 3]>> = LazyLock::new(|| vec![]);
-
 pub fn vertex_to_index(vertex: UVec3) -> usize {
     VERTEX_LIST.iter().position(|&v| v == vertex).unwrap()
 }
@@ -411,61 +399,6 @@ pub static SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP: LazyLock<[Vec<[UVec3; 3]>;
 
         map
     });
-
-pub static SHAPE_DESCRIPTOR_TO_BLOCK_INDEX_MAP: LazyLock<[BlockIndex; 256]> = LazyLock::new(|| {
-    let mut map: [BlockIndex; 256] = [0; 256];
-    let facing_rotations = [
-        Vec3::new(0.0, 0.0, 0.0),                     // North
-        Vec3::new(0.0, -90.0_f32.to_radians(), 0.0),  // East
-        Vec3::new(0.0, -180.0_f32.to_radians(), 0.0), // South
-        Vec3::new(0.0, -270.0_f32.to_radians(), 0.0), // West
-        Vec3::new(0.0, 0.0, 90.0_f32.to_radians()),   // Top
-        Vec3::new(0.0, 0.0, -90.0_f32.to_radians()),  // Bottom
-    ];
-    // Angles are negative as the angle describes the angle seen when facing the cube from the outside, not the inside
-    let face_rotations = [
-        Vec3::new(0.0, 0.0, 0.0),                     // 0 degrees
-        Vec3::new(-90.0_f32.to_radians(), 0.0, 0.0),  // 90 degrees
-        Vec3::new(-180.0_f32.to_radians(), 0.0, 0.0), // 180 degrees
-        Vec3::new(-270.0_f32.to_radians(), 0.0, 0.0), // 270 degrees
-    ];
-
-    for (shape_index, shape) in [
-        &ZERO_SIXTH_VERTEX_LIST,
-        &ONE_SIXTH_VERTEX_LIST,
-        &TWO_SIXTH_VERTEX_LIST,
-        &THREE_SIXTH_VERTEX_LIST,
-        &FOUR_SIXTH_VERTEX_LIST,
-        &FIVE_SIXTH_VERTEX_LIST,
-        &SIX_SIXTH_VERTEX_LIST,
-    ]
-    .iter()
-    .enumerate()
-    {
-        for (facing_rotation_index, facing_rotation) in facing_rotations.iter().enumerate() {
-            for (face_rotation_index, face_rotation) in face_rotations.iter().enumerate() {
-                let rotation = *facing_rotation + *face_rotation;
-                let rot = Mat4::from_euler(EulerRot::XYZ, rotation.x, rotation.y, rotation.z);
-                let rotated_vertices = shape
-                    .iter()
-                    .map(|vertex| {
-                        let center_at_origin = vertex.as_vec3() - Vec3::new(0.5, 0.5, 0.5);
-                        let rotated = rot.transform_vector3(center_at_origin);
-                        (rotated + Vec3::new(0.5, 0.5, 0.5)).round().as_uvec3()
-                    })
-                    .collect::<Vec<UVec3>>();
-                let block_index = rotated_vertices
-                    .iter()
-                    .fold(0, |acc, vertex| acc | (1 << vertex_to_index(*vertex)));
-
-                let index = (facing_rotation_index * 4 + face_rotation_index) | (shape_index << 5);
-                map[index] = block_index;
-            }
-        }
-    }
-
-    map
-});
 
 pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::new(|| {
     let mut map: [u32; 256] = [1; 256];

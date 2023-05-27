@@ -1,16 +1,18 @@
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::{
-        AmbientLight, Camera3d, ClearColor, Color, Commands, Component, DirectionalLight,
-        DirectionalLightBundle, Plugin, Quat, Query, Res, ResMut, Resource, Transform, Vec3, With,
+        AmbientLight, Camera3d, Color, Commands, Component, DirectionalLight,
+        DirectionalLightBundle, FogSettings, Plugin, Quat, Query, ReflectResource, Res, ResMut,
+        Resource, Transform, Vec3, With,
     },
-    render::camera,
+    reflect::Reflect,
     time::{Time, Timer, TimerMode},
 };
 use bevy_atmosphere::{
     prelude::{AtmosphereModel, AtmospherePlugin, Nishita},
     system_param::AtmosphereMut,
 };
+use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 
 pub struct EnvironmentPlugin {
     with_atmosphere: bool,
@@ -23,7 +25,8 @@ pub struct Sun;
 struct CycleTimer(Timer);
 
 /// Daylight value between 0.0 and 1.0 (0.0 = night, 1.0 = day)
-#[derive(Resource, Default)]
+#[derive(Resource, Reflect, Default)]
+#[reflect(Resource)]
 struct DaylightCycle(f32);
 
 impl Plugin for EnvironmentPlugin {
@@ -34,6 +37,8 @@ impl Plugin for EnvironmentPlugin {
                 TimerMode::Repeating,
             )))
             .init_resource::<DaylightCycle>()
+            .register_type::<DaylightCycle>()
+            .add_plugin(ResourceInspectorPlugin::<DaylightCycle>::default())
             .add_startup_system(Self::setup_environment)
             .add_system(Self::daylight_cycle)
             .add_system(Self::update_lights);
@@ -80,12 +85,17 @@ impl EnvironmentPlugin {
         }
     }
 
-    fn update_clear_color(daylight: Res<DaylightCycle>, mut camera_3d: Query<(&mut Camera3d,)>) {
+    fn update_clear_color(
+        daylight: Res<DaylightCycle>,
+        mut camera_3d: Query<(&mut Camera3d,)>,
+        mut fog: Query<(&mut FogSettings,)>,
+    ) {
         camera_3d.single_mut().0.clear_color = ClearColorConfig::Custom(Color::rgb(
             0.7 * daylight.0,
             0.8 * daylight.0,
             1.0 * daylight.0,
         ));
+        fog.single_mut().0.color = Color::rgb(0.7 * daylight.0, 0.8 * daylight.0, 1.0 * daylight.0);
     }
 
     fn update_atmosphere(

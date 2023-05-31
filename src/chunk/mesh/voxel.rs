@@ -2,20 +2,20 @@ use bevy::prelude::{IVec3, UVec3};
 
 use crate::{
     chunk::Grid,
-    terrain::block::{
+    world::terrain::block_descriptor::{
         material::Material,
         shape::{
             Shape, ShapeDescriptor, SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP,
             SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP,
         },
-        Block,
+        BlockDescriptor,
     },
 };
 
 use super::ChunkMesh;
 
 pub struct Voxel {
-    pub block: Option<Block>,
+    pub block: Option<BlockDescriptor>,
     pub position: UVec3,
 }
 
@@ -26,7 +26,7 @@ impl Grid {
 }
 
 impl Voxel {
-    pub fn new(block: Option<Block>, position: UVec3) -> Self {
+    pub fn new(block: Option<BlockDescriptor>, position: UVec3) -> Self {
         Self { block, position }
     }
 

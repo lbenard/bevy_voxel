@@ -4,11 +4,11 @@ use noise::{NoiseFn, OpenSimplex};
 
 use crate::{
     chunk::Grid,
-    terrain::{
-        block::{
+    world::terrain::{
+        block_descriptor::{
             material::{DIRT, GRASS, STONE},
             shape::{Shape, Volume, BLOCK_INDEX_TO_SHAPE_MAP},
-            Block,
+            BlockDescriptor,
         },
         generator::ChunkGenerator,
     },
@@ -117,7 +117,7 @@ impl ChunkGenerator for NoiseTerrain {
                         } else {
                             STONE
                         };
-                        Some(Block { shape, material })
+                        Some(BlockDescriptor { shape, material })
                     };
                     chunk.blocks[grid_index] = block;
                 }

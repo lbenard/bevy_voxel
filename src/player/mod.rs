@@ -8,7 +8,7 @@ use bevy_atmosphere::prelude::AtmosphereCamera;
 use bevy_mod_raycast::{Intersection, RaycastSource};
 use bevy_spectator::{Spectator, SpectatorPlugin, SpectatorSettings};
 
-use crate::terrain::{chunk_loader::ChunkLoaderSource, TerrainRaycastSet};
+use crate::world::terrain::{chunk_loader::ChunkLoaderSource, TerrainRaycastSet};
 
 pub struct PlayerPlugin;
 

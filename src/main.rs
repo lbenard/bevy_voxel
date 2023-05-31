@@ -10,13 +10,13 @@ use bevy::{
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use environment::EnvironmentPlugin;
 use player::PlayerPlugin;
-use terrain::{material::TerrainMaterial, TerrainPlugin};
+use world::terrain::{material::TerrainMaterial, TerrainPlugin};
 
 mod chunk;
 mod debug;
 mod environment;
 mod player;
-mod terrain;
+mod world;
 
 #[bevy_main]
 fn main() {

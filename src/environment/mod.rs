@@ -52,12 +52,14 @@ impl Plugin for EnvironmentPlugin {
 }
 
 impl EnvironmentPlugin {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             with_atmosphere: false,
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_atmosphere() -> Self {
         Self {
             with_atmosphere: true,

@@ -1,4 +1,4 @@
-pub mod block;
+pub mod block_descriptor;
 pub mod chunk_loader;
 pub mod generator;
 pub mod material;

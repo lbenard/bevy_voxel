@@ -11,7 +11,7 @@ use crate::{
         generators::noise_terrain::NoiseTerrain, mesh::ChunkMesh, Chunk, ChunkCoordinates,
         ChunkState, Grid, CHUNK_SIZE,
     },
-    terrain::TerrainRaycastSet,
+    world::{terrain::TerrainRaycastSet, World},
 };
 
 use super::material::TerrainMaterial;
@@ -41,6 +41,7 @@ impl ChunkLoaderPlugin {
         mut commands: Commands,
         source: Query<(&Transform, &ChunkLoaderSource)>,
         chunks: Query<(Entity, &Chunk, &ChunkCoordinates)>,
+        world: Res<World>,
         render_distance: Res<RenderDistance>,
     ) {
         let thread_pool = AsyncComputeTaskPool::get();

@@ -1,10 +1,10 @@
 use crate::chunk::Grid;
 
-use crate::terrain::block::material::Material;
-use crate::terrain::block::shape::Volume;
-use crate::terrain::material::ATTRIBUTE_BASE_VOXEL_ID;
+use crate::world::terrain::block_descriptor::material::Material;
+use crate::world::terrain::block_descriptor::shape::Volume;
+use crate::world::terrain::material::ATTRIBUTE_BASE_VOXEL_ID;
 
-use bevy::prelude::{Color, IVec3, Mesh};
+use bevy::prelude::{Color, Mesh};
 use bevy::{
     math::UVec3,
     prelude::Vec3,

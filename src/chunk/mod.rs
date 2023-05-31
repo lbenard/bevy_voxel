@@ -1,6 +1,9 @@
 use bevy::prelude::{Component, IVec3, UVec3};
 
-use crate::terrain::{block::Block, generator::ChunkGenerator};
+use crate::world::{
+    block::Block,
+    terrain::{block_descriptor::BlockDescriptor, generator::ChunkGenerator},
+};
 
 pub mod generators;
 pub mod mesh;
@@ -8,7 +11,22 @@ pub mod mesh;
 pub const CHUNK_SIZE: UVec3 = UVec3::new(32, 128, 32);
 
 #[derive(Component)]
-pub struct Chunk;
+pub struct Chunk {
+    pub coordinates: ChunkCoordinates,
+    pub absolute_position: IVec3,
+    grid: Grid, // to replace, grid has what's needed for meshing
+}
+
+impl Chunk {
+    pub fn get_block(&self, relative_position: UVec3) -> Option<Block> {
+        let block_descriptor = self.grid.block_at_pos(relative_position.as_ivec3())?;
+        Some(Block {
+            position: self.absolute_position + relative_position.as_ivec3(),
+            shape: block_descriptor.shape,
+            material: block_descriptor.material,
+        })
+    }
+}
 
 #[derive(Component, PartialEq)]
 pub struct ChunkCoordinates(pub IVec3);
@@ -29,7 +47,7 @@ pub type BlockIndex = u8;
 pub struct Grid {
     pub size: UVec3,
     pub extended_size: UVec3,
-    pub blocks: Vec<Option<Block>>,
+    pub blocks: Vec<Option<BlockDescriptor>>,
 }
 
 impl Grid {
@@ -48,7 +66,7 @@ impl Grid {
         self
     }
 
-    pub fn block_at_pos(&self, pos: IVec3) -> Option<Block> {
+    pub fn block_at_pos(&self, pos: IVec3) -> Option<BlockDescriptor> {
         let pos = pos + IVec3::ONE;
         let idx = self.pos_idx(pos.as_uvec3());
         if idx >= self.blocks.len() {

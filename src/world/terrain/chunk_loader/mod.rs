@@ -3,15 +3,14 @@ use bevy::{
     render::texture::ImageSampler,
     tasks::{AsyncComputeTaskPool, Task},
 };
-use bevy_mod_raycast::RaycastMesh;
 use futures_lite::future;
 
 use crate::{
     chunk::{
         generators::noise_terrain::NoiseTerrain, mesh::ChunkMesh, Chunk, ChunkCoordinates,
-        ChunkState, Grid, CHUNK_SIZE,
+        ChunkMarker, ChunkState, Grid, CHUNK_SIZE,
     },
-    world::{terrain::TerrainRaycastSet, World},
+    world::World,
 };
 
 use super::material::TerrainMaterial;
@@ -19,6 +18,7 @@ use super::material::TerrainMaterial;
 struct ComputeChunkResult {
     absolute_position: IVec3,
     mesh: Mesh,
+    grid: Grid,
 }
 
 #[derive(Component)]
@@ -40,8 +40,7 @@ impl ChunkLoaderPlugin {
     fn load_chunks(
         mut commands: Commands,
         source: Query<(&Transform, &ChunkLoaderSource)>,
-        chunks: Query<(Entity, &Chunk, &ChunkCoordinates)>,
-        world: Res<World>,
+        chunks: Query<(Entity, &ChunkMarker, &ChunkCoordinates)>,
         render_distance: Res<RenderDistance>,
     ) {
         let thread_pool = AsyncComputeTaskPool::get();
@@ -71,7 +70,7 @@ impl ChunkLoaderPlugin {
                         );
                         let task = Self::new_chunk_task(thread_pool, chunk_coordinates);
                         commands.spawn((
-                            Chunk,
+                            ChunkMarker,
                             ChunkCoordinates(chunk_coordinates),
                             ChunkState::Loading,
                             ComputeChunk(task),
@@ -104,6 +103,7 @@ impl ChunkLoaderPlugin {
         mut chunk_states: Query<(Entity, &mut ChunkState)>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<TerrainMaterial>>,
+        mut world: ResMut<World>,
     ) {
         let mut material: TerrainMaterial = Color::rgb(1.0, 1.0, 1.0).into();
         material.metallic = 0.0;
@@ -128,11 +128,17 @@ impl ChunkLoaderPlugin {
                             ),
                             ..default()
                         },
-                        RaycastMesh::<TerrainRaycastSet>::default(),
+                        // RaycastMesh::<TerrainRaycastSet>::default(),
                     ));
 
                     commands.entity(entity).remove::<ComputeChunk>();
                     *chunk_states.get_mut(entity).unwrap().1 = ChunkState::Rendered;
+
+                    world.spawn_chunk(Chunk {
+                        coordinates: ChunkCoordinates(chunk.absolute_position),
+                        absolute_position: chunk.absolute_position,
+                        grid: chunk.grid,
+                    });
                 }
             }
         }
@@ -155,7 +161,7 @@ impl ChunkLoaderPlugin {
     }
 
     fn get_chunk(
-        query: &Query<(Entity, &Chunk, &ChunkCoordinates)>,
+        query: &Query<(Entity, &ChunkMarker, &ChunkCoordinates)>,
         position: ChunkCoordinates,
     ) -> Option<Entity> {
         query
@@ -175,19 +181,13 @@ impl ChunkLoaderPlugin {
                 chunk_coordinates.y * CHUNK_SIZE.y as i32,
                 chunk_coordinates.z * CHUNK_SIZE.z as i32,
             );
-            let grid = Grid::new(CHUNK_SIZE).generate(
-                IVec3::new(
-                    absolute_position.x,
-                    absolute_position.y,
-                    absolute_position.z,
-                ),
-                &generator,
-            );
+            let grid = Grid::new(CHUNK_SIZE).generate(absolute_position, &generator);
 
             let mesh = ChunkMesh::new().mesh_grid(&grid).mesh();
             ComputeChunkResult {
                 mesh,
                 absolute_position,
+                grid,
             }
         })
     }

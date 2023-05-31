@@ -1,4 +1,4 @@
-use bevy::prelude::{Entity, IVec3, Query, Resource};
+use bevy::prelude::{IVec3, Plugin, Resource};
 
 use crate::chunk::{Chunk, ChunkCoordinates, CHUNK_SIZE};
 
@@ -14,6 +14,14 @@ pub struct World {
 }
 
 impl World {
+    pub fn spawn_chunk(&mut self, chunk: Chunk) {
+        self.chunks.push(chunk);
+    }
+
+    pub fn remove_chunk(&mut self, coordinates: ChunkCoordinates) {
+        self.chunks.retain(|chunk| chunk.coordinates != coordinates);
+    }
+
     pub fn get_chunk(&self, coordinates: ChunkCoordinates) -> Option<&Chunk> {
         self.chunks
             .iter()
@@ -26,5 +34,13 @@ impl World {
         let relative_position = (position - chunk_coordinates.0 * CHUNK_SIZE.as_ivec3()).as_uvec3();
         let block = chunk.get_block(relative_position)?;
         Some(block)
+    }
+}
+
+pub struct WorldPlugin;
+
+impl Plugin for WorldPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.init_resource::<World>();
     }
 }

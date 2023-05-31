@@ -10,11 +10,10 @@ pub mod mesh;
 
 pub const CHUNK_SIZE: UVec3 = UVec3::new(32, 128, 32);
 
-#[derive(Component)]
 pub struct Chunk {
     pub coordinates: ChunkCoordinates,
     pub absolute_position: IVec3,
-    grid: Grid, // to replace, grid has what's needed for meshing
+    pub grid: Grid, // to replace, grid has what's needed for meshing
 }
 
 impl Chunk {
@@ -28,7 +27,10 @@ impl Chunk {
     }
 }
 
-#[derive(Component, PartialEq)]
+#[derive(Component)]
+pub struct ChunkMarker;
+
+#[derive(Component, PartialEq, Clone, Copy)]
 pub struct ChunkCoordinates(pub IVec3);
 
 /// Describe the chunk loading state.

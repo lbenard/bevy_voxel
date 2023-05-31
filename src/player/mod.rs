@@ -1,14 +1,11 @@
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
-    prelude::{
-        info, Camera3d, Camera3dBundle, Color, Commands, FogFalloff, FogSettings, Plugin, Query,
-    },
+    prelude::{Camera3d, Camera3dBundle, Color, Commands, FogFalloff, FogSettings, Plugin},
 };
 use bevy_atmosphere::prelude::AtmosphereCamera;
-use bevy_mod_raycast::{Intersection, RaycastSource};
 use bevy_spectator::{Spectator, SpectatorPlugin, SpectatorSettings};
 
-use crate::world::terrain::{chunk_loader::ChunkLoaderSource, TerrainRaycastSet};
+use crate::world::terrain::chunk_loader::ChunkLoaderSource;
 
 pub struct PlayerPlugin;
 
@@ -31,29 +28,29 @@ impl PlayerPlugin {
                 },
                 ..Default::default()
             },
-            RaycastSource::<TerrainRaycastSet>::new_transform_empty(),
+            // RaycastSource::<TerrainRaycastSet>::new_transform_empty(),
             AtmosphereCamera::default(),
             Spectator,
             ChunkLoaderSource,
         ));
     }
 
-    fn intersection(query: Query<&Intersection<TerrainRaycastSet>>) {
-        for intersection in &query {
-            info!(
-                "Distance {:?}, Position {:?}",
-                intersection.distance(),
-                intersection.position()
-            );
-        }
-    }
+    // fn intersection(query: Query<&Intersection<TerrainRaycastSet>>) {
+    //     for intersection in &query {
+    //         info!(
+    //             "Distance {:?}, Position {:?}",
+    //             intersection.distance(),
+    //             intersection.position()
+    //         );
+    //     }
+    // }
 }
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugin(SpectatorPlugin)
             .add_startup_system(Self::setup_player)
-            .add_system(Self::intersection)
+            // .add_system(Self::intersection)
             .insert_resource(SpectatorSettings {
                 base_speed: 50.0,
                 alt_speed: 2000.0,

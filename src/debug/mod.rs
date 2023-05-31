@@ -1,13 +1,58 @@
+use std::time::Duration;
+
 use bevy::{prelude::*, render};
 
 #[derive(Component)]
 pub struct DebugComponent;
 
-pub struct DebugPlugin;
+#[derive(Default)]
+pub struct DebugPluginBuilder {
+    debug_sphere_at_origin: bool,
+    adhd_autoclose: Option<Duration>,
+}
+
+impl DebugPluginBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn build(self) -> DebugPlugin {
+        DebugPlugin {
+            debug_sphere_at_origin: self.debug_sphere_at_origin,
+            adhd_autoclose: self.adhd_autoclose,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn debug_sphere_at_origin(mut self) -> Self {
+        self.debug_sphere_at_origin = true;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn with_adhd_autoclose(mut self, duration: Duration) -> Self {
+        self.adhd_autoclose = Some(duration);
+        self
+    }
+}
+
+#[derive(Resource)]
+struct AutoClose(Timer);
+
+pub struct DebugPlugin {
+    debug_sphere_at_origin: bool,
+    adhd_autoclose: Option<Duration>,
+}
 
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(Self::origin_sphere);
+        if self.debug_sphere_at_origin {
+            app.add_startup_system(Self::origin_sphere);
+        }
+        if let Some(duration) = self.adhd_autoclose {
+            app.insert_resource(AutoClose(Timer::new(duration, TimerMode::Once)))
+                .add_system(Self::auto_close);
+        }
     }
 }
 
@@ -48,5 +93,13 @@ impl DebugPlugin {
                 ..default()
             })
             .insert(DebugComponent);
+    }
+
+    fn auto_close(mut timer: ResMut<AutoClose>, time: Res<Time>) {
+        timer.0.tick(time.delta());
+
+        if timer.0.finished() {
+            std::process::exit(0);
+        }
     }
 }

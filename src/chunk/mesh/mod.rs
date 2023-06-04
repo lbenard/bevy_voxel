@@ -53,15 +53,15 @@ impl ChunkMesh {
         self
     }
 
-    pub fn mesh(&mut self) -> Mesh {
+    pub fn mesh(self) -> Mesh {
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
 
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.vertices.clone());
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals.clone());
-        // mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, self.colors.clone());
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs.clone());
-        mesh.insert_attribute(ATTRIBUTE_BASE_VOXEL_ID, self.voxel_ids.clone());
-        mesh.set_indices(Some(Indices::U32(self.indices.clone())));
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.vertices);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
+        // mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, self.colors);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs);
+        mesh.insert_attribute(ATTRIBUTE_BASE_VOXEL_ID, self.voxel_ids);
+        mesh.set_indices(Some(Indices::U32(self.indices)));
         mesh
     }
 
@@ -71,12 +71,12 @@ impl ChunkMesh {
         triangles: &Vec<[UVec3; 3]>,
         material: &Material,
     ) {
-        let mut rng = rand::thread_rng();
-        let randomize_offset = Vec3::new(
-            rng.gen_range(-0.04..0.04),
-            rng.gen_range(-0.04..0.04),
-            rng.gen_range(-0.04..0.04),
-        );
+        // let mut rng = rand::thread_rng();
+        // let randomize_offset = Vec3::new(
+        //     rng.gen_range(-0.04..0.04),
+        //     rng.gen_range(-0.04..0.04),
+        //     rng.gen_range(-0.04..0.04),
+        // );
 
         for tri in triangles {
             let tri_vertices = tri
@@ -89,8 +89,8 @@ impl ChunkMesh {
                 .collect::<Vec<[f32; 3]>>();
             self.vertices.append(&mut tri_vertices_array);
 
-            let normal = Self::normal(tri_vertices[0], tri_vertices[2], tri_vertices[1]);
-            let normal = (normal + randomize_offset).to_array();
+            let normal = Self::normal(tri_vertices[0], tri_vertices[2], tri_vertices[1]).to_array();
+            // let normal = (normal + randomize_offset).to_array();
 
             // All three vertices should share the same normal because that's how lowpoly works
             self.normals.append(&mut vec![normal, normal, normal]);

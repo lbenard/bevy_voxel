@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use bevy::{
     prelude::*,
     render::texture::ImageSampler,
@@ -19,6 +21,7 @@ struct ComputeChunkResult {
     absolute_position: IVec3,
     mesh: Mesh,
     grid: Grid,
+    generation_duration: Duration,
 }
 
 #[derive(Component)]
@@ -81,20 +84,20 @@ impl ChunkLoaderPlugin {
         }
 
         // Unload chunks
-        for (entity, _, ChunkCoordinates(chunk_coordinates)) in &mut chunks.iter() {
-            let chunk_middle = chunk_coordinates.as_vec3() + Vec3::ONE / 2.0;
-            let distance_squared = (chunk_middle - source_coordinates).length_squared();
+        // for (entity, _, ChunkCoordinates(chunk_coordinates)) in &mut chunks.iter() {
+        //     let chunk_middle = chunk_coordinates.as_vec3() + Vec3::ONE / 2.0;
+        //     let distance_squared = (chunk_middle - source_coordinates).length_squared();
 
-            if distance_squared
-                > (render_distance.unload_distance * render_distance.unload_distance) as f32
-            {
-                info!(
-                    "Unloading chunk at {} {}",
-                    chunk_coordinates.x, chunk_coordinates.z
-                );
-                commands.entity(entity).despawn();
-            }
-        }
+        //     if distance_squared
+        //         > (render_distance.unload_distance * render_distance.unload_distance) as f32
+        //     {
+        //         info!(
+        //             "Unloading chunk at {} {}",
+        //             chunk_coordinates.x, chunk_coordinates.z
+        //         );
+        //         commands.entity(entity).despawn();
+        //     }
+        // }
     }
 
     fn handle_chunk_tasks(
@@ -113,8 +116,8 @@ impl ChunkLoaderPlugin {
         for (entity, mut chunk_task) in &mut chunk_tasks.iter_mut() {
             if let Some(chunk) = future::block_on(future::poll_once(&mut chunk_task.0)) {
                 info!(
-                    "Spawning chunk at {} {}",
-                    chunk.absolute_position.x, chunk.absolute_position.y
+                    "Spawned chunk at {} {} ({:?})",
+                    chunk.absolute_position.x, chunk.absolute_position.y, chunk.generation_duration
                 );
                 if let Some(mut entity_command) = commands.get_entity(entity) {
                     entity_command.insert((
@@ -174,6 +177,8 @@ impl ChunkLoaderPlugin {
         thread_pool: &AsyncComputeTaskPool,
         chunk_coordinates: IVec3,
     ) -> Task<ComputeChunkResult> {
+        let stopwatch = Instant::now();
+
         thread_pool.spawn(async move {
             let generator = NoiseTerrain::new();
             let absolute_position = IVec3::new(
@@ -188,6 +193,7 @@ impl ChunkLoaderPlugin {
                 mesh,
                 absolute_position,
                 grid,
+                generation_duration: stopwatch.elapsed(),
             }
         })
     }

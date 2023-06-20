@@ -10,9 +10,9 @@
 #import bevy_pbr::fog
 #import bevy_pbr::pbr_functions
 
-fn gold_noise(in: vec3<f32>, seed: f32) -> vec3<f32> {
-    return fract(tan(distance(in * 1.61803398874989484820459, in) * seed) * in.x).xyz;
-}
+// fn gold_noise(in: vec3<f32>, seed: f32) -> vec3<f32> {
+//     return fract(tan(distance(in * 1.61803398874989484820459, in) * seed) * in.x).xyz;
+// }
 
 struct Vertex {
     @location(0) position: vec3<f32>,

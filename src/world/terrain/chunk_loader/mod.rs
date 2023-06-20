@@ -9,8 +9,9 @@ use futures_lite::future;
 
 use crate::{
     chunk::{
-        generators::noise_terrain::NoiseTerrain, mesh::ChunkMesh, Chunk, ChunkCoordinates,
-        ChunkMarker, ChunkState, Grid, CHUNK_SIZE,
+        generators::{height_noise_terrain::HeightNoiseTerrain, noise_terrain::NoiseTerrain},
+        mesh::ChunkMesh,
+        Chunk, ChunkCoordinates, ChunkMarker, ChunkState, Grid, CHUNK_SIZE,
     },
     world::World,
 };
@@ -22,6 +23,7 @@ struct ComputeChunkResult {
     mesh: Mesh,
     grid: Grid,
     generation_duration: Duration,
+    meshing_duration: Duration,
 }
 
 #[derive(Component)]
@@ -30,6 +32,18 @@ pub(self) struct ComputeChunk(Task<ComputeChunkResult>);
 pub struct ChunkLoaderPlugin {
     load_distance: u32,
     unload_distance: u32,
+}
+
+impl Plugin for ChunkLoaderPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_system(Self::load_chunks)
+            .add_system(Self::handle_chunk_tasks)
+            .add_system(Self::set_images_to_nearest)
+            .insert_resource(RenderDistance {
+                load_distance: self.load_distance,
+                unload_distance: self.unload_distance,
+            });
+    }
 }
 
 impl ChunkLoaderPlugin {
@@ -116,8 +130,12 @@ impl ChunkLoaderPlugin {
         for (entity, mut chunk_task) in &mut chunk_tasks.iter_mut() {
             if let Some(chunk) = future::block_on(future::poll_once(&mut chunk_task.0)) {
                 info!(
-                    "Spawned chunk at {} {} ({:?})",
-                    chunk.absolute_position.x, chunk.absolute_position.y, chunk.generation_duration
+                    "Spawned chunk at {} {} ({:?} {:?} {:?})",
+                    chunk.absolute_position.x,
+                    chunk.absolute_position.y,
+                    chunk.generation_duration,
+                    chunk.meshing_duration,
+                    chunk.generation_duration + chunk.meshing_duration
                 );
                 if let Some(mut entity_command) = commands.get_entity(entity) {
                     entity_command.insert((
@@ -177,37 +195,29 @@ impl ChunkLoaderPlugin {
         thread_pool: &AsyncComputeTaskPool,
         chunk_coordinates: IVec3,
     ) -> Task<ComputeChunkResult> {
-        let stopwatch = Instant::now();
-
         thread_pool.spawn(async move {
-            let generator = NoiseTerrain::new();
+            let generation_timer = Instant::now();
+            // let generator = NoiseTerrain::new();
+            let generator = HeightNoiseTerrain::new();
             let absolute_position = IVec3::new(
                 chunk_coordinates.x * CHUNK_SIZE.x as i32,
                 chunk_coordinates.y * CHUNK_SIZE.y as i32,
                 chunk_coordinates.z * CHUNK_SIZE.z as i32,
             );
             let grid = Grid::new(CHUNK_SIZE).generate(absolute_position, &generator);
+            let generation_duration = generation_timer.elapsed();
 
+            let meshing_timer = Instant::now();
             let mesh = ChunkMesh::new().mesh_grid(&grid).mesh();
+            let meshing_duration = meshing_timer.elapsed();
             ComputeChunkResult {
                 mesh,
                 absolute_position,
                 grid,
-                generation_duration: stopwatch.elapsed(),
+                generation_duration,
+                meshing_duration,
             }
         })
-    }
-}
-
-impl Plugin for ChunkLoaderPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_system(Self::load_chunks)
-            .add_system(Self::handle_chunk_tasks)
-            .add_system(Self::set_images_to_nearest)
-            .insert_resource(RenderDistance {
-                load_distance: self.load_distance,
-                unload_distance: self.unload_distance,
-            });
     }
 }
 

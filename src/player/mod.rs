@@ -1,13 +1,29 @@
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
-    prelude::{Camera3d, Camera3dBundle, Color, Commands, FogFalloff, FogSettings, Plugin},
+    prelude::{
+        info, Camera, Camera3d, Camera3dBundle, Color, Commands, FogFalloff, FogSettings, Plugin,
+        Query, Res, Transform, Vec3,
+    },
 };
 use bevy_atmosphere::prelude::AtmosphereCamera;
 use bevy_spectator::{Spectator, SpectatorPlugin, SpectatorSettings};
 
-use crate::world::terrain::chunk_loader::ChunkLoaderSource;
+use crate::world::{raycast::raycast, terrain::chunk_loader::ChunkLoaderSource, World};
 
 pub struct PlayerPlugin;
+
+impl Plugin for PlayerPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.add_plugin(SpectatorPlugin)
+            .add_startup_system(Self::setup_player)
+            .insert_resource(SpectatorSettings {
+                base_speed: 50.0,
+                alt_speed: 2000.0,
+                sensitivity: 0.001,
+                ..Default::default()
+            });
+    }
+}
 
 impl PlayerPlugin {
     fn setup_player(mut commands: Commands) {
@@ -28,34 +44,24 @@ impl PlayerPlugin {
                 },
                 ..Default::default()
             },
-            // RaycastSource::<TerrainRaycastSet>::new_transform_empty(),
             AtmosphereCamera::default(),
             Spectator,
             ChunkLoaderSource,
         ));
     }
 
-    // fn intersection(query: Query<&Intersection<TerrainRaycastSet>>) {
-    //     for intersection in &query {
-    //         info!(
-    //             "Distance {:?}, Position {:?}",
-    //             intersection.distance(),
-    //             intersection.position()
-    //         );
-    //     }
-    // }
-}
-
-impl Plugin for PlayerPlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugin(SpectatorPlugin)
-            .add_startup_system(Self::setup_player)
-            // .add_system(Self::intersection)
-            .insert_resource(SpectatorSettings {
-                base_speed: 50.0,
-                alt_speed: 2000.0,
-                sensitivity: 0.001,
-                ..Default::default()
-            });
+    fn raycast(camera: Query<(&Camera, &Transform)>, world: Res<World>) {
+        for (camera, transform) in &camera {
+            // rotation to direction vector
+            let direction = Vec3::new(
+                -transform.rotation.x.sin() * transform.rotation.y.cos(),
+                transform.rotation.x.cos(),
+                -transform.rotation.x.sin() * transform.rotation.y.sin(),
+            );
+            let result = raycast(transform.translation, direction, 100.0, &world);
+            if let Some(result) = result {
+                info!("Raycast hit {:?}", result);
+            }
+        }
     }
 }

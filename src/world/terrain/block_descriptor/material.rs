@@ -1,6 +1,6 @@
 use bevy::prelude::Color;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Material {
     pub id: u32,
     pub color: Color,

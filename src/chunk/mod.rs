@@ -8,7 +8,7 @@ use crate::world::{
 pub mod generators;
 pub mod mesh;
 
-pub const CHUNK_SIZE: UVec3 = UVec3::new(32, 128, 32);
+pub const CHUNK_SIZE: UVec3 = UVec3::new(32, 32, 32);
 
 pub struct Chunk {
     pub coordinates: ChunkCoordinates,

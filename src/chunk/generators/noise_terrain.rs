@@ -1,6 +1,6 @@
 use bevy::prelude::{IVec3, UVec3};
 use interpolation::lerp;
-use noise::{NoiseFn, OpenSimplex};
+use noise::{NoiseFn, OpenSimplex, Perlin};
 
 use crate::{
     chunk::Grid,
@@ -14,16 +14,16 @@ use crate::{
     },
 };
 
-const WORLD_HEIGHT: f64 = 128.0;
+const WORLD_HEIGHT: f64 = 64.0;
 
 pub struct NoiseTerrain {
-    noise: OpenSimplex,
+    noise: Perlin,
 }
 
 impl NoiseTerrain {
     pub fn new() -> Self {
         NoiseTerrain {
-            noise: OpenSimplex::default(),
+            noise: Perlin::default(),
         }
     }
 }
@@ -109,7 +109,12 @@ impl ChunkGenerator for NoiseTerrain {
                         depth = 0;
                         None
                     } else {
-                        depth += 1;
+                        if (index & 0b1111_0000).count_ones() < (index & 0b0000_1111).count_ones() {
+                            depth = 0;
+                        } else {
+                            depth += 1;
+                        }
+                        // depth += 1;
                         let material = if depth <= 3 {
                             GRASS
                         } else if depth <= 8 {

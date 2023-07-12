@@ -45,11 +45,13 @@ fn main() {
             //     ..default()
             // }),
     )
-    .add_plugin(WorldPlugin)
-    .add_plugin(TerrainPlugin)
-    .add_plugin(MaterialPlugin::<TerrainMaterial>::default())
-    .add_plugin(PlayerPlugin)
-    .add_plugin(EnvironmentPlugin::new());
+    .add_plugins((
+        WorldPlugin,
+        TerrainPlugin,
+        MaterialPlugin::<TerrainMaterial>::default(),
+        PlayerPlugin,
+        EnvironmentPlugin,
+    ));
 
     #[cfg(debug_assertions)]
     app.add_plugin(

@@ -3,20 +3,19 @@ use bevy::{
     prelude::{
         AmbientLight, Camera3d, Color, Commands, Component, DirectionalLight,
         DirectionalLightBundle, FogSettings, Plugin, Quat, Query, ReflectResource, Res, ResMut,
-        Resource, Transform, Vec3, With,
+        Resource, Startup, Transform, Update, Vec3, With,
     },
     reflect::Reflect,
     time::{Time, Timer, TimerMode},
 };
+#[cfg(feature = "atmosphere")]
 use bevy_atmosphere::{
     prelude::{AtmosphereModel, AtmospherePlugin, Nishita},
     system_param::AtmosphereMut,
 };
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 
-pub struct EnvironmentPlugin {
-    with_atmosphere: bool,
-}
+pub struct EnvironmentPlugin;
 
 #[derive(Component)]
 pub struct Sun;
@@ -31,41 +30,27 @@ struct DaylightCycle(f32);
 
 impl Plugin for EnvironmentPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.insert_resource(AtmosphereModel::default())
-            .insert_resource(CycleTimer(Timer::new(
-                bevy::utils::Duration::from_millis(16), // Update our atmosphere every 50ms (in a real game, this would be much slower, but for the sake of an example we use a faster update)
-                TimerMode::Repeating,
-            )))
-            .init_resource::<DaylightCycle>()
-            .register_type::<DaylightCycle>()
-            .add_plugin(ResourceInspectorPlugin::<DaylightCycle>::default())
-            .add_startup_system(Self::setup_environment)
-            .add_system(Self::daylight_cycle)
-            .add_system(Self::update_lights);
-        if self.with_atmosphere {
-            app.add_plugin(AtmospherePlugin)
-                .add_system(Self::update_atmosphere);
-        } else {
-            app.add_system(Self::update_clear_color);
+        #[cfg(feature = "atmosphere")]
+        {
+            app.insert_resource(AtmosphereModelMetadataphereModel::default());
+            app.add_plugins(AtmospherePlugin)
+                .add_systems(Update, Self::update_atmosphere);
         }
+        #[cfg(not(feature = "atmosphere"))]
+        app.add_systems(Update, Self::update_clear_color);
+        app.insert_resource(CycleTimer(Timer::new(
+            bevy::utils::Duration::from_millis(16), // Update our atmosphere every 50ms (in a real game, this would be much slower, but for the sake of an example we use a faster update)
+            TimerMode::Repeating,
+        )))
+        .init_resource::<DaylightCycle>()
+        .register_type::<DaylightCycle>()
+        .add_plugins(ResourceInspectorPlugin::<DaylightCycle>::default())
+        .add_systems(Startup, Self::setup_environment)
+        .add_systems(Update, (Self::daylight_cycle, Self::update_lights));
     }
 }
 
 impl EnvironmentPlugin {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self {
-            with_atmosphere: false,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn with_atmosphere() -> Self {
-        Self {
-            with_atmosphere: true,
-        }
-    }
-
     fn setup_environment(mut commands: Commands) {
         commands.spawn((Sun, DirectionalLightBundle::default()));
         commands.insert_resource(AmbientLight {
@@ -100,6 +85,7 @@ impl EnvironmentPlugin {
         fog.single_mut().0.color = Color::rgb(0.7 * daylight.0, 0.8 * daylight.0, 1.0 * daylight.0);
     }
 
+    #[cfg(feature = "atmosphere")]
     fn update_atmosphere(
         mut atmosphere: AtmosphereMut<Nishita>,
         timer: Res<CycleTimer>,

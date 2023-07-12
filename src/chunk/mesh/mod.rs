@@ -45,8 +45,8 @@ impl ChunkMesh {
                         if block.shape.volume == Volume::ZeroSixth {
                             continue;
                         }
+                        voxel.mesh(&mut self, &grid);
                     }
-                    voxel.mesh(&mut self, &grid);
                 }
             }
         }

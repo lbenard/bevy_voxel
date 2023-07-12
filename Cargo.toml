@@ -10,11 +10,12 @@ opt-level = 3
 overflow-checks = false
 
 [dependencies]
-bevy = "0.10.1"
-bevy-inspector-egui = "0.18"
-bevy_atmosphere = "0.6"
-bevy_spectator = { git = "https://github.com/JonahPlusPlus/bevy_spectator.git", rev = "d62d0be"}
-bevy_mod_raycast = "0.8"
+bevy = "0.11.0"
+# bevy-inspector-egui = "0.18"
+bevy-inspector-egui = { git = "https://github.com/KMaheshBhat/bevy-inspector-egui.git", branch = "feature/bevy_0.11_upgrade" }
+# bevy_atmosphere = "0.6"
+bevy_spectator = { git = "https://github.com/lbenard/bevy_spectator.git", branch = "master"}
+# bevy_mod_raycast = "0.8"
 egui_dock = "0.4"
 egui-gizmo = "0.10"
 noise = "0.7"
@@ -23,3 +24,6 @@ interpolation = "*"
 futures-lite = "1.11.3"
 rand = "0.8.5"
 bitflags = "1.2"
+
+[features]
+atmosphere = []

@@ -14,7 +14,7 @@ use bevy::render::{
 pub const ATTRIBUTE_BASE_VOXEL_ID: MeshVertexAttribute =
     MeshVertexAttribute::new("BaseVoxelIndices", 281114372, VertexFormat::Uint32);
 
-#[derive(AsBindGroup, Reflect, FromReflect, Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Reflect, Debug, Clone, TypeUuid)]
 #[uuid = "3e82975c-30cf-48bf-a825-9f21d0749070"]
 #[bind_group_data(TerrainMaterialKey)]
 #[uniform(0, TerrainMaterialUniform)]

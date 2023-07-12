@@ -2,9 +2,10 @@ use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::{
         info, Camera, Camera3d, Camera3dBundle, Color, Commands, FogFalloff, FogSettings, Plugin,
-        Query, Res, Transform, Vec3,
+        Query, Res, Startup, Transform, Vec3,
     },
 };
+#[cfg(feature = "atmosphere")]
 use bevy_atmosphere::prelude::AtmosphereCamera;
 use bevy_spectator::{Spectator, SpectatorPlugin, SpectatorSettings};
 
@@ -14,8 +15,8 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugin(SpectatorPlugin)
-            .add_startup_system(Self::setup_player)
+        app.add_plugins(SpectatorPlugin)
+            .add_systems(Startup, Self::setup_player)
             .insert_resource(SpectatorSettings {
                 base_speed: 50.0,
                 alt_speed: 2000.0,
@@ -44,6 +45,7 @@ impl PlayerPlugin {
                 },
                 ..Default::default()
             },
+            #[cfg(feature = "atmosphere")]
             AtmosphereCamera::default(),
             Spectator,
             ChunkLoaderSource,

@@ -47,11 +47,11 @@ pub struct DebugPlugin {
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         if self.debug_sphere_at_origin {
-            app.add_startup_system(Self::origin_sphere);
+            app.add_systems(Startup, Self::origin_sphere);
         }
         if let Some(duration) = self.adhd_autoclose {
             app.insert_resource(AutoClose(Timer::new(duration, TimerMode::Once)))
-                .add_system(Self::auto_close);
+                .add_systems(Update, Self::auto_close);
         }
     }
 }

@@ -16,7 +16,7 @@ impl ChunkGenerator for FlatTerrain {
             for z in 0..chunk.size.z {
                 for y in 0..x + 1 {
                     let idx = chunk.pos_idx(UVec3 { x, y, z });
-                    chunk.blocks[idx] = 0b1111_1111;
+                    chunk.voxels[idx] = 0b1111_1111;
                 }
             }
         }

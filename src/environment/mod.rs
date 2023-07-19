@@ -1,9 +1,13 @@
+use std::f32::consts::PI;
+
+#[cfg(feature = "atmosphere")]
+use bevy::prelude::Vec3;
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::{
-        AmbientLight, Camera3d, Color, Commands, Component, DirectionalLight,
+        default, AmbientLight, Camera3d, Color, Commands, Component, DirectionalLight,
         DirectionalLightBundle, FogSettings, Plugin, Quat, Query, ReflectResource, Res, ResMut,
-        Resource, Startup, Transform, Update, Vec3, With,
+        Resource, Startup, Transform, Update, With,
     },
     reflect::Reflect,
     time::{Time, Timer, TimerMode},
@@ -32,7 +36,7 @@ impl Plugin for EnvironmentPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         #[cfg(feature = "atmosphere")]
         {
-            app.insert_resource(AtmosphereModelMetadataphereModel::default());
+            app.insert_resource(AtmosphereModel::default());
             app.add_plugins(AtmospherePlugin)
                 .add_systems(Update, Self::update_atmosphere);
         }
@@ -52,7 +56,23 @@ impl Plugin for EnvironmentPlugin {
 
 impl EnvironmentPlugin {
     fn setup_environment(mut commands: Commands) {
-        commands.spawn((Sun, DirectionalLightBundle::default()));
+        commands.spawn((
+            Sun,
+            DirectionalLightBundle {
+                directional_light: DirectionalLight {
+                    illuminance: 10_000.0,
+                    // shadows_enabled: true,
+                    ..default()
+                },
+                transform: Transform::from_rotation(Quat::from_euler(
+                    bevy::prelude::EulerRot::ZYX,
+                    0.0,
+                    PI * -0.15,
+                    PI * -0.15,
+                )),
+                ..default()
+            },
+        ));
         commands.insert_resource(AmbientLight {
             color: Color::rgb(1.0, 1.0, 1.0),
             brightness: 1.0,

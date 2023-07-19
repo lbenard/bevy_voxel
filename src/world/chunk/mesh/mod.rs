@@ -1,16 +1,15 @@
-use crate::chunk::Grid;
+use crate::world::voxel::material::Material;
+use crate::world::voxel::shape::Volume;
 
-use crate::world::terrain::block_descriptor::material::Material;
-use crate::world::terrain::block_descriptor::shape::Volume;
-use crate::world::terrain::material::ATTRIBUTE_BASE_VOXEL_ID;
-
-use bevy::prelude::{Color, IVec3, Mesh};
+use bevy::prelude::{Color, Mesh};
 use bevy::{
     math::UVec3,
     prelude::Vec3,
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
 use rand::Rng;
+
+use super::Grid;
 
 pub mod voxel;
 
@@ -26,6 +25,7 @@ pub struct ChunkMesh {
 impl ChunkMesh {
     pub fn new() -> Self {
         Self {
+            // TODO: allocate with capacity to avoid obvious vector re-allocations
             vertices: Vec::new(),
             normals: Vec::new(),
             colors: Vec::new(),
@@ -36,16 +36,16 @@ impl ChunkMesh {
     }
 
     pub fn mesh_grid(mut self, grid: &Grid) -> Self {
-        for x in 0..grid.size.x {
-            for z in 0..grid.size.z {
-                for y in 0..grid.size.y {
+        for x in 1..grid.size.x - 1 {
+            for z in 1..grid.size.z - 1 {
+                for y in 1..grid.size.y - 1 {
                     let pos = UVec3 { x, y: y as u32, z };
-                    let voxel = grid.voxel_at_pos(pos);
-                    if let Some(block) = voxel.block {
-                        if block.shape.volume == Volume::ZeroSixth {
+                    let voxel_mesh = grid.voxel_mesh_at_pos(pos);
+                    if let Some(voxel) = voxel_mesh.voxel {
+                        if voxel.shape.volume == Volume::ZeroSixth {
                             continue;
                         }
-                        voxel.mesh(&mut self, &grid);
+                        voxel_mesh.mesh(&mut self, &grid);
                     }
                 }
             }
@@ -60,7 +60,7 @@ impl ChunkMesh {
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
         // mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, self.colors);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs);
-        mesh.insert_attribute(ATTRIBUTE_BASE_VOXEL_ID, self.voxel_ids);
+        // mesh.insert_attribute(ATTRIBUTE_BASE_VOXEL_ID, self.voxel_ids);
         mesh.set_indices(Some(Indices::U32(self.indices)));
         mesh
     }

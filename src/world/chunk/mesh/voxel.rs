@@ -1,42 +1,42 @@
 use bevy::prelude::{IVec3, UVec3};
 
-use crate::{
+use crate::world::{
     chunk::Grid,
-    world::terrain::block_descriptor::{
+    voxel::{
         material::Material,
         shape::{
             Shape, ShapeDescriptor, SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP,
             SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP,
         },
-        BlockDescriptor,
+        VoxelDescriptor,
     },
 };
 
 use super::ChunkMesh;
 
-pub struct Voxel {
-    pub block: Option<BlockDescriptor>,
+pub struct VoxelMesh {
+    pub voxel: Option<VoxelDescriptor>,
     pub position: UVec3,
 }
 
 impl Grid {
-    pub fn voxel_at_pos(&self, pos: UVec3) -> Voxel {
-        Voxel::new(self.block_at_pos(pos.as_ivec3()), pos)
+    pub fn voxel_mesh_at_pos(&self, pos: UVec3) -> VoxelMesh {
+        VoxelMesh::new(self.voxel_at_pos(pos.as_ivec3()), pos)
     }
 }
 
-impl Voxel {
-    pub fn new(block: Option<BlockDescriptor>, position: UVec3) -> Self {
-        Self { block, position }
+impl VoxelMesh {
+    pub fn new(voxel: Option<VoxelDescriptor>, position: UVec3) -> Self {
+        Self { voxel, position }
     }
 
     pub fn mesh(&self, chunk_mesh: &mut ChunkMesh, grid: &Grid) {
-        let shape = self.block.map(|block| block.shape).unwrap_or(Shape::EMPTY);
+        let shape = self.voxel.map(|voxel| voxel.shape).unwrap_or(Shape::EMPTY);
 
         let shape_descriptor: ShapeDescriptor = shape.into();
-        if let Some(block) = self.block {
+        if let Some(voxel) = self.voxel {
             let tris = &SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP[shape_descriptor.0 as usize];
-            chunk_mesh.add_vertices_at_pos(self.position, tris, &block.material);
+            chunk_mesh.add_vertices_at_pos(self.position, tris, &voxel.material);
 
             for side in SIDES.iter() {
                 let side_descriptor =
@@ -44,9 +44,9 @@ impl Voxel {
                 if side_descriptor.descriptor == 0 {
                     continue;
                 }
-                let adjacent_block = grid.block_at_pos(side.adjacent_position(self.position));
-                let adjacent_shape = adjacent_block
-                    .map(|block| block.shape)
+                let adjacent_voxel = grid.voxel_at_pos(side.adjacent_position(self.position));
+                let adjacent_shape = adjacent_voxel
+                    .map(|voxel| voxel.shape)
                     .unwrap_or(Shape::EMPTY);
                 let adjacent_side_descriptor =
                     SideDescriptor::from_shape_descriptor(&adjacent_shape.into(), side.opposite());
@@ -56,7 +56,7 @@ impl Voxel {
                     &adjacent_side_descriptor,
                 );
 
-                result_side_descriptor.mesh_side(chunk_mesh, self.position, &block.material);
+                result_side_descriptor.mesh_side(chunk_mesh, self.position, &voxel.material);
             }
         }
     }

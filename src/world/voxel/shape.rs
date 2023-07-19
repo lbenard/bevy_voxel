@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use bevy::prelude::{EulerRot, Mat4, UVec3, Vec3};
 
-use crate::chunk::BlockIndex;
+use crate::world::chunk::VoxelIndex;
 
 // North: 0b1100_1100
 // South: 0b0011_0011
@@ -446,13 +446,13 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                         (rotated + Vec3::new(0.5, 0.5, 0.5)).round().as_uvec3()
                     })
                     .collect::<Vec<UVec3>>();
-                let block_index: BlockIndex = rotated_vertices
+                let voxel_index: VoxelIndex = rotated_vertices
                     .iter()
                     .fold(0, |acc, vertex| acc | (1 << vertex_to_index(*vertex)));
 
                 // NORTH
                 // 0b1100_1100
-                let north_index = block_index & NORTH_FACE_MASK;
+                let north_index = voxel_index & NORTH_FACE_MASK;
                 let north_face_flag: u32 = match north_index {
                     0b0100_1100 => 0b0001,
                     0b1000_1100 => 0b0010,
@@ -464,7 +464,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
 
                 // EAST
                 // 0b1001_1001
-                let east_index = block_index & EAST_FACE_MASK;
+                let east_index = voxel_index & EAST_FACE_MASK;
                 let east_face_flag: u32 = match east_index {
                     0b0001_0101 => 0b0001,
                     0b0101_0001 => 0b0010,
@@ -476,7 +476,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
 
                 // SOUTH
                 // 0b0011_0011
-                let south_index = block_index & SOUTH_FACE_MASK;
+                let south_index = voxel_index & SOUTH_FACE_MASK;
                 let south_face_flag: u32 = match south_index {
                     0b0001_0011 => 0b0001,
                     0b0010_0011 => 0b0010,
@@ -488,7 +488,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
 
                 // WEST
                 // 0b0110_0110
-                let west_index = block_index & WEST_FACE_MASK;
+                let west_index = voxel_index & WEST_FACE_MASK;
                 let west_face_flag: u32 = match west_index {
                     0b0010_1010 => 0b0001,
                     0b1010_0010 => 0b0010,
@@ -500,7 +500,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
 
                 // TOP
                 // 0b1111_0000
-                let top_index = block_index & TOP_FACE_MASK;
+                let top_index = voxel_index & TOP_FACE_MASK;
                 let top_face_flag: u32 = match top_index {
                     0b0111_0000 => 0b0001,
                     0b1101_0000 => 0b0010,
@@ -512,7 +512,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
 
                 // BOTTOM
                 // 0b0000_1111
-                let bottom_index = block_index & BOTTOM_FACE_MASK;
+                let bottom_index = voxel_index & BOTTOM_FACE_MASK;
                 let bottom_face_flag: u32 = match bottom_index {
                     0b0000_0111 => 0b0001,
                     0b0000_1101 => 0b0010,
@@ -539,7 +539,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
     map
 });
 
-pub static BLOCK_INDEX_TO_SHAPE_MAP: LazyLock<[Shape; 256]> = LazyLock::new(|| {
+pub static VOXEL_INDEX_TO_SHAPE_MAP: LazyLock<[Shape; 256]> = LazyLock::new(|| {
     let mut map: [Shape; 256] = [Shape::EMPTY; 256];
     let facing_rotations = [
         Vec3::new(0.0, 0.0, 0.0),                     // North
@@ -604,5 +604,17 @@ pub static BLOCK_INDEX_TO_SHAPE_MAP: LazyLock<[Shape; 256]> = LazyLock::new(|| {
         }
     }
 
+    map
+});
+
+pub static SHAPE_DESCRIPTOR_TO_VOXEL_INDEX_MAP: LazyLock<[VoxelIndex; 256]> = LazyLock::new(|| {
+    let mut map: [VoxelIndex; 256] = [0; 256];
+    for (i, shape) in VOXEL_INDEX_TO_SHAPE_MAP.iter().enumerate() {
+        if shape.volume == Volume::ZeroSixth {
+            continue;
+        }
+        let shape_descriptor: ShapeDescriptor = (*shape).into();
+        map[shape_descriptor.0 as usize] = i as u8;
+    }
     map
 });

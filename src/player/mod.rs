@@ -1,15 +1,16 @@
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
+    core_pipeline::{clear_color::ClearColorConfig, experimental::taa::TemporalAntiAliasBundle},
+    pbr::{ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings},
     prelude::{
-        info, Camera, Camera3d, Camera3dBundle, Color, Commands, FogFalloff, FogSettings, Plugin,
-        Query, Res, Startup, Transform, Vec3,
+        default, Camera, Camera3d, Camera3dBundle, Color, Commands, FogFalloff, FogSettings,
+        Plugin, Startup,
     },
 };
 #[cfg(feature = "atmosphere")]
 use bevy_atmosphere::prelude::AtmosphereCamera;
 use bevy_spectator::{Spectator, SpectatorPlugin, SpectatorSettings};
 
-use crate::world::{raycast::raycast, terrain::chunk_loader::ChunkLoaderSource, World};
+use crate::world::chunk::loader::ChunkLoaderSource;
 
 pub struct PlayerPlugin;
 
@@ -28,42 +29,57 @@ impl Plugin for PlayerPlugin {
 
 impl PlayerPlugin {
     fn setup_player(mut commands: Commands) {
-        commands.spawn((
-            Camera3dBundle {
-                camera_3d: Camera3d {
-                    // clear sky color
-                    clear_color: ClearColorConfig::Custom(Color::rgb(0.7, 0.8, 1.0)),
-                    ..Default::default()
+        commands
+            .spawn((
+                Camera3dBundle {
+                    camera: Camera {
+                        hdr: true,
+                        ..default()
+                    },
+                    camera_3d: Camera3d {
+                        // clear sky color
+                        clear_color: ClearColorConfig::Custom(Color::rgb(0.7, 0.8, 1.0)),
+                        ..default()
+                    },
+                    ..default()
                 },
-                ..Default::default()
-            },
-            FogSettings {
-                color: Color::rgba(0.1, 0.2, 0.4, 1.0),
-                falloff: FogFalloff::Linear {
-                    start: 200.0,
-                    end: 400.0,
+                FogSettings {
+                    color: Color::rgba(0.1, 0.2, 0.4, 1.0),
+                    falloff: FogFalloff::Linear {
+                        start: 500.0,
+                        end: 1000.0,
+                    },
+                    ..default()
                 },
-                ..Default::default()
-            },
-            #[cfg(feature = "atmosphere")]
-            AtmosphereCamera::default(),
-            Spectator,
-            ChunkLoaderSource,
-        ));
+                #[cfg(feature = "atmosphere")]
+                AtmosphereCamera::default(),
+                Spectator,
+                ChunkLoaderSource,
+            ))
+            .insert(ScreenSpaceAmbientOcclusionBundle {
+                settings: ScreenSpaceAmbientOcclusionSettings {
+                    quality_level: bevy::pbr::ScreenSpaceAmbientOcclusionQualityLevel::Custom {
+                        slice_count: 3,
+                        samples_per_slice_side: 3,
+                    },
+                },
+                ..default()
+            })
+            .insert(TemporalAntiAliasBundle::default());
     }
 
-    fn raycast(camera: Query<(&Camera, &Transform)>, world: Res<World>) {
-        for (camera, transform) in &camera {
-            // rotation to direction vector
-            let direction = Vec3::new(
-                -transform.rotation.x.sin() * transform.rotation.y.cos(),
-                transform.rotation.x.cos(),
-                -transform.rotation.x.sin() * transform.rotation.y.sin(),
-            );
-            let result = raycast(transform.translation, direction, 100.0, &world);
-            if let Some(result) = result {
-                info!("Raycast hit {:?}", result);
-            }
-        }
-    }
+    // fn raycast(camera: Query<(&Camera, &Transform)>, world: Res<World>) {
+    //     for (camera, transform) in &camera {
+    //         // rotation to direction vector
+    //         let direction = Vec3::new(
+    //             -transform.rotation.x.sin() * transform.rotation.y.cos(),
+    //             transform.rotation.x.cos(),
+    //             -transform.rotation.x.sin() * transform.rotation.y.sin(),
+    //         );
+    //         let result = raycast(transform.translation, direction, 100.0, &world);
+    //         if let Some(result) = result {
+    //             info!("Raycast hit {:?}", result);
+    //         }
+    //     }
+    // }
 }

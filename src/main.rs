@@ -1,21 +1,23 @@
 #![feature(lazy_cell)]
 
-use std::time::Duration;
-
 use bevy::{
-    core::TaskPoolThreadAssignmentPolicy, diagnostic::FrameTimeDiagnosticsPlugin, prelude::*,
-    window::PresentMode,
+    core::TaskPoolThreadAssignmentPolicy,
+    core_pipeline::experimental::taa::TemporalAntiAliasPlugin, prelude::*, window::PresentMode,
 };
+
+#[cfg(debug_assertions)]
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+
+#[cfg(debug_assertions)]
 use debug::DebugPluginBuilder;
 use environment::EnvironmentPlugin;
 use player::PlayerPlugin;
 use world::{
-    terrain::{material::TerrainMaterial, TerrainPlugin},
+    chunk::{loader::ChunkLoaderPlugin, material::TerrainMaterial},
     WorldPlugin,
 };
 
-mod chunk;
+#[cfg(debug_assertions)]
 mod debug;
 mod environment;
 mod player;
@@ -26,40 +28,41 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(
-        DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resolution: (1920.0, 1080.0).into(),
-                present_mode: PresentMode::Immediate,
+        DefaultPlugins
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: (1920.0, 1080.0).into(),
+                    present_mode: PresentMode::Immediate,
+                    ..default()
+                }),
+                ..default()
+            })
+            .set(TaskPoolPlugin {
+                task_pool_options: TaskPoolOptions {
+                    async_compute: TaskPoolThreadAssignmentPolicy {
+                        min_threads: 1,
+                        max_threads: std::usize::MAX,
+                        percent: 1.0,
+                    },
+                    ..default()
+                },
                 ..default()
             }),
-            ..default()
-        }), // .set(TaskPoolPlugin {
-            //     task_pool_options: TaskPoolOptions {
-            //         async_compute: TaskPoolThreadAssignmentPolicy {
-            //             min_threads: 1,
-            //             max_threads: std::usize::MAX,
-            //             percent: 1.0,
-            //         },
-            //         ..default()
-            //     },
-            //     ..default()
-            // }),
     )
     .add_plugins((
         WorldPlugin,
-        TerrainPlugin,
+        ChunkLoaderPlugin::new(8, 16),
         MaterialPlugin::<TerrainMaterial>::default(),
         PlayerPlugin,
         EnvironmentPlugin,
+        TemporalAntiAliasPlugin,
     ));
 
     #[cfg(debug_assertions)]
-    app.add_plugin(
-        DebugPluginBuilder::new()
-            // .with_adhd_autoclose(Duration::from_secs(10))
-            .build(),
-    )
-    .add_plugin(WorldInspectorPlugin::new());
+    app.add_plugins((
+        DebugPluginBuilder::new().debug_sphere_at_origin().build(),
+        WorldInspectorPlugin::new(),
+    ));
 
     app.run();
 }

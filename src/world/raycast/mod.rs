@@ -1,14 +1,15 @@
 use bevy::prelude::Vec3;
 
-use super::{terrain::block_descriptor::BlockDescriptor, World};
+use super::{voxel::VoxelDescriptor, World};
 
 #[derive(Debug)]
 pub struct RaycastResult {
     pub position: Vec3,
     // pub face: Vec3,
-    pub block: BlockDescriptor,
+    pub voxel: VoxelDescriptor,
 }
 
+#[allow(dead_code)]
 pub fn raycast(origin: Vec3, direction: Vec3, radius: f32, world: &World) -> Option<RaycastResult> {
     let sign = direction.signum();
     let reciprocal = 1.0 / direction.abs();
@@ -22,12 +23,12 @@ pub fn raycast(origin: Vec3, direction: Vec3, radius: f32, world: &World) -> Opt
         if origin.distance(position) > radius {
             break;
         }
-        if let Some(block) = world.get_block(position.as_ivec3()) {
+        if let Some(voxel) = world.get_voxel(position.as_ivec3()) {
             // let face = Vec3::from_element(axis as f32) * sign[axis];
             return Some(RaycastResult {
                 position: origin + direction * steps[axis],
                 // face,
-                block: block.into(),
+                voxel: voxel.into(),
             });
         }
         steps[axis] += reciprocal[axis];

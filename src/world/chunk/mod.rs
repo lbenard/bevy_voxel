@@ -39,14 +39,10 @@ pub struct Grid {
 impl Grid {
     pub fn voxel_at_pos(&self, pos: IVec3) -> Option<VoxelDescriptor> {
         // let pos = pos + IVec3::ONE;
-        let idx = self.pos_idx(pos.as_uvec3());
+        let idx = self.shape.linearize(pos.as_uvec3().to_array()) as usize;
         if idx >= self.voxels.len() {
             return None;
         }
         self.voxels[idx]
-    }
-
-    pub fn pos_idx(&self, pos: UVec3) -> usize {
-        self.shape.linearize(pos.to_array()) as usize
     }
 }

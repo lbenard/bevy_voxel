@@ -1,5 +1,6 @@
 use crate::world::voxel::material::Material;
 use crate::world::voxel::shape::Volume;
+use crate::world::World;
 
 use bevy::prelude::{Color, Mesh};
 use bevy::{
@@ -35,14 +36,14 @@ impl ChunkMesh {
         }
     }
 
-    pub fn mesh_grid(mut self, grid: &Grid) -> Self {
-        for x in 1..grid.size.x - 1 {
-            for z in 1..grid.size.z - 1 {
-                for y in 1..grid.size.y - 1 {
+    pub fn mesh_grid(mut self, grid: &Grid, world: &World) -> Self {
+        for x in 0..grid.size.x {
+            for z in 0..grid.size.z {
+                for y in 0..grid.size.y {
                     let pos = UVec3 { x, y: y as u32, z };
                     let voxel_mesh = grid.voxel_mesh_at_pos(pos);
-                    if let Some(voxel) = voxel_mesh.voxel {
-                        if voxel.shape.volume == Volume::ZeroSixth {
+                    if let Some(voxel_mesh) = voxel_mesh {
+                        if voxel_mesh.voxel.shape.volume == Volume::ZeroSixth {
                             continue;
                         }
                         voxel_mesh.mesh(&mut self, &grid);

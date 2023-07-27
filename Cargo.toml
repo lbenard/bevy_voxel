@@ -27,6 +27,7 @@ futures-lite = "1.11.3"
 rand = "0.8.5"
 bitflags = "1.2"
 ndshape = "0.3.0"
+parking_lot = "0.12"
 
 [features]
 atmosphere = []

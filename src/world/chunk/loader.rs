@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use bevy::{
     prelude::*,
@@ -7,6 +10,7 @@ use bevy::{
 };
 use bevy_spectator::SpectatorSystemSet;
 use futures_lite::future;
+use parking_lot::RwLock;
 
 use crate::world::{chunk::ChunkState, Chunk, World};
 
@@ -86,8 +90,9 @@ impl ChunkLoaderPlugin {
             .chunks
             .extract_if(|k, _v| !coordinates.contains(k))
             .map(|(_k, v)| v)
-            .collect::<Vec<Chunk>>();
+            .collect::<Vec<Arc<RwLock<Chunk>>>>();
         for chunk in out_of_range {
+            let chunk = chunk.read();
             info!(
                 "Unloading chunk at {} {}",
                 chunk.coordinates.0.x, chunk.coordinates.0.z
@@ -100,7 +105,7 @@ impl ChunkLoaderPlugin {
     fn load_chunks(
         mut commands: Commands,
         source: Query<(&Transform, &ChunkLoaderSource)>,
-        chunks: Query<(Entity, &ChunkMarker, &ChunkCoordinates)>,
+        // chunks: Query<(Entity, &ChunkMarker, &ChunkCoordinates)>,
         render_distance: Res<RenderDistance>,
         mut world: ResMut<World>,
     ) {
@@ -110,22 +115,19 @@ impl ChunkLoaderPlugin {
         let Ok((source_transform, _)) = source.get_single() else { return };
         let coordinates =
             Self::chunk_coordinates_within_range(source_transform.translation, load_distance);
+
         for chunk_coordinates in coordinates {
-            if Self::get_chunk(&chunks, chunk_coordinates).is_none() {
+            if world.get_chunk_mut(chunk_coordinates).is_none() {
                 info!(
                     "Generating chunk at {} {}",
                     chunk_coordinates.0.x, chunk_coordinates.0.z
                 );
-                let task = Self::new_chunk_task(thread_pool, chunk_coordinates);
-                let new_chunk = commands
-                    .spawn((
-                        ChunkMarker,
-                        chunk_coordinates,
-                        ChunkState::Loading,
-                        ComputeChunk(task),
-                    ))
-                    .id();
-                world.spawn_chunk(new_chunk, chunk_coordinates);
+                let mut new_chunk =
+                    commands.spawn((ChunkMarker, chunk_coordinates, ChunkState::Loading));
+                world.spawn_chunk(new_chunk.id(), chunk_coordinates);
+                // let chunk = world.get_chunk_mut(chunk_coordinates).unwrap();
+                let task = Self::new_chunk_task(thread_pool, chunk_coordinates, &mut world);
+                new_chunk.insert(ComputeChunk(task));
             }
         }
     }
@@ -197,20 +199,13 @@ impl ChunkLoaderPlugin {
         }
     }
 
-    fn get_chunk(
-        query: &Query<(Entity, &ChunkMarker, &ChunkCoordinates)>,
-        position: ChunkCoordinates,
-    ) -> Option<Entity> {
-        query
-            .iter()
-            .find(|(_, ref _chunk, ref chunk_position)| **chunk_position == position)
-            .map(|(entity, ref _chunk, ref _chunk_position)| entity)
-    }
-
     fn new_chunk_task(
         thread_pool: &AsyncComputeTaskPool,
         chunk_coordinates: ChunkCoordinates,
+        world: &mut World,
     ) -> Task<ComputeChunkResult> {
+        let chunk = world.get_chunk_mut(chunk_coordinates).unwrap().clone();
+
         thread_pool.spawn(async move {
             let generation_timer = Instant::now();
 
@@ -221,18 +216,22 @@ impl ChunkLoaderPlugin {
                 chunk_coordinates.0.y * CHUNK_SIZE.y as i32,
                 chunk_coordinates.0.z * CHUNK_SIZE.z as i32,
             );
+
             let chunk_shape = generator.generate(absolute_position, super::Shape {});
-            let grid = materializator.materialize(&chunk_shape);
+            chunk.write().terrain = Some(chunk_shape);
+            let grid = materializator.materialize(&chunk.read().terrain.as_ref().unwrap());
+            chunk.write().grid = Some(grid);
 
             let generation_duration = generation_timer.elapsed();
 
             let meshing_timer = Instant::now();
-            let mesh = ChunkMesh::new().mesh_grid(&grid).mesh();
+            let mesh = ChunkMesh::new()
+                .mesh_grid(&chunk.read().grid.as_ref().unwrap(), world)
+                .mesh();
             let meshing_duration = meshing_timer.elapsed();
             ComputeChunkResult {
                 mesh,
                 absolute_position,
-                // grid,
                 generation_duration,
                 meshing_duration,
             }

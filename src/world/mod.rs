@@ -2,6 +2,8 @@ use bevy::{
     prelude::{Entity, IVec3, Plugin, Resource, UVec3},
     utils::HashMap,
 };
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 use self::{
     chunk::{generator::Terrain, ChunkCoordinates, Grid, CHUNK_SIZE},
@@ -22,7 +24,13 @@ impl Plugin for WorldPlugin {
 
 #[derive(Resource, Default)]
 pub struct World {
-    pub chunks: HashMap<ChunkCoordinates, Chunk>,
+    pub chunks: HashMap<ChunkCoordinates, Arc<RwLock<Chunk>>>,
+}
+
+impl Into<Arc<RwLock<Chunk>>> for Chunk {
+    fn into(self) -> Arc<RwLock<Chunk>> {
+        Arc::new(RwLock::new(self))
+    }
 }
 
 impl World {
@@ -35,7 +43,8 @@ impl World {
                 absolute_position: coordinates.0 * CHUNK_SIZE.as_ivec3(),
                 terrain: None,
                 grid: None,
-            },
+            }
+            .into(),
         );
     }
 
@@ -45,19 +54,22 @@ impl World {
     }
 
     #[allow(dead_code)]
-    pub fn get_chunk(&self, coordinates: ChunkCoordinates) -> Option<&Chunk> {
+    pub fn get_chunk(&self, coordinates: ChunkCoordinates) -> Option<&Arc<RwLock<Chunk>>> {
         self.chunks.get(&coordinates)
     }
 
     #[allow(dead_code)]
-    pub fn get_chunk_mut(&mut self, coordinates: ChunkCoordinates) -> Option<&mut Chunk> {
+    pub fn get_chunk_mut(
+        &mut self,
+        coordinates: ChunkCoordinates,
+    ) -> Option<&mut Arc<RwLock<Chunk>>> {
         self.chunks.get_mut(&coordinates)
     }
 
     #[allow(dead_code)]
     pub fn get_voxel(self, position: IVec3) -> Option<Voxel> {
         let chunk_coordinates = ChunkCoordinates(position / CHUNK_SIZE.as_ivec3());
-        let chunk = self.get_chunk(chunk_coordinates)?;
+        let chunk = self.get_chunk(chunk_coordinates)?.read();
         let relative_position = (position - chunk_coordinates.0 * CHUNK_SIZE.as_ivec3()).as_uvec3();
         let voxel = chunk.get_voxel(relative_position)?;
         Some(voxel)

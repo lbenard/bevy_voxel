@@ -1,4 +1,5 @@
 #![feature(lazy_cell)]
+#![feature(core_intrinsics)]
 
 use bevy::{
     core::TaskPoolThreadAssignmentPolicy,
@@ -51,7 +52,7 @@ fn main() {
     )
     .add_plugins((
         WorldPlugin,
-        ChunkLoaderPlugin::new(8, 16),
+        ChunkLoaderPlugin::new(16, 24),
         MaterialPlugin::<TerrainMaterial>::default(),
         PlayerPlugin,
         EnvironmentPlugin,

@@ -9,8 +9,12 @@ use bevy::{
     tasks::{AsyncComputeTaskPool, Task},
 };
 use bevy_spectator::SpectatorSystemSet;
+use derive_more::{Add, Debug, Div, From};
 use futures_lite::future;
 use parking_lot::RwLock;
+
+#[cfg(debug_assertions)]
+use crate::debug::stats::Average;
 
 use crate::world::{chunk::ChunkState, Chunk, World};
 
@@ -24,18 +28,19 @@ use super::{
     ChunkCoordinates, ChunkMarker, CHUNK_SIZE,
 };
 
+#[derive(Default, Add, Div, From, Copy, Clone, Debug)]
+#[debug("{_0:?}")]
+struct GenerationDuration(Duration);
+#[derive(Default, Add, Div, From, Copy, Clone, Debug)]
+#[debug("{_0:?}")]
+struct MeshingDuration(Duration);
+
 struct ComputeChunkResult {
     absolute_position: IVec3,
     mesh: Mesh,
-    // grid: Grid,
-    generation_duration: Duration,
-    meshing_duration: Duration,
+    generation_duration: GenerationDuration,
+    meshing_duration: MeshingDuration,
 }
-
-// #[derive(Resource)]
-// struct ChunkQueue {
-//     new_chunks: Vec<()
-// }
 
 #[derive(Component)]
 pub(self) struct ComputeChunk(Task<ComputeChunkResult>);
@@ -64,6 +69,17 @@ impl Plugin for ChunkLoaderPlugin {
             load_distance: self.default_load_distance,
             unload_distance: self.default_unload_distance,
         });
+
+        #[cfg(debug_assertions)]
+        app.init_resource::<Average<GenerationDuration>>()
+            .init_resource::<Average<MeshingDuration>>()
+            .add_systems(
+                Update,
+                (
+                    Average::<GenerationDuration>::egui_debug,
+                    Average::<MeshingDuration>::egui_debug,
+                ),
+            );
     }
 }
 
@@ -78,7 +94,6 @@ impl ChunkLoaderPlugin {
     fn unload_chunks(
         mut commands: Commands,
         source: Query<(&Transform, &ChunkLoaderSource)>,
-        // chunks: Query<(Entity, &ChunkMarker)>,
         render_distance: Res<RenderDistance>,
         mut world: ResMut<World>,
     ) {
@@ -93,10 +108,6 @@ impl ChunkLoaderPlugin {
             .collect::<Vec<Arc<RwLock<Chunk>>>>();
         for chunk in out_of_range {
             let chunk = chunk.read();
-            info!(
-                "Unloading chunk at {} {}",
-                chunk.coordinates.0.x, chunk.coordinates.0.z
-            );
             commands.entity(chunk.entity).despawn();
             world.remove_chunk(chunk.coordinates);
         }
@@ -105,7 +116,6 @@ impl ChunkLoaderPlugin {
     fn load_chunks(
         mut commands: Commands,
         source: Query<(&Transform, &ChunkLoaderSource)>,
-        // chunks: Query<(Entity, &ChunkMarker, &ChunkCoordinates)>,
         render_distance: Res<RenderDistance>,
         mut world: ResMut<World>,
     ) {
@@ -118,14 +128,9 @@ impl ChunkLoaderPlugin {
 
         for chunk_coordinates in coordinates {
             if world.get_chunk_mut(chunk_coordinates).is_none() {
-                info!(
-                    "Generating chunk at {} {}",
-                    chunk_coordinates.0.x, chunk_coordinates.0.z
-                );
                 let mut new_chunk =
                     commands.spawn((ChunkMarker, chunk_coordinates, ChunkState::Loading));
                 world.spawn_chunk(new_chunk.id(), chunk_coordinates);
-                // let chunk = world.get_chunk_mut(chunk_coordinates).unwrap();
                 let task = Self::new_chunk_task(thread_pool, chunk_coordinates, &mut world);
                 new_chunk.insert(ComputeChunk(task));
             }
@@ -138,7 +143,8 @@ impl ChunkLoaderPlugin {
         mut chunk_states: Query<(Entity, &mut ChunkState)>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<TerrainMaterial>>,
-        // mut world: ResMut<World>,
+        #[cfg(debug_assertions)] mut generation_average: ResMut<Average<GenerationDuration>>,
+        #[cfg(debug_assertions)] mut meshing_average: ResMut<Average<MeshingDuration>>,
     ) {
         let mut material: TerrainMaterial = Color::rgb(0.1, 0.9, 0.0).into();
         material.metallic = 0.0;
@@ -147,37 +153,25 @@ impl ChunkLoaderPlugin {
 
         for (entity, mut chunk_task) in &mut chunk_tasks.iter_mut() {
             if let Some(chunk) = future::block_on(future::poll_once(&mut chunk_task.0)) {
-                info!(
-                    "Spawned chunk at {} {} ({:?} {:?} {:?})",
-                    chunk.absolute_position.x,
-                    chunk.absolute_position.y,
-                    chunk.generation_duration,
-                    chunk.meshing_duration,
-                    chunk.generation_duration + chunk.meshing_duration
-                );
+                #[cfg(debug_assertions)]
+                generation_average.add(chunk.generation_duration);
+                #[cfg(debug_assertions)]
+                meshing_average.add(chunk.meshing_duration);
+
                 if let Some(mut entity_command) = commands.get_entity(entity) {
-                    entity_command.insert((
-                        MaterialMeshBundle {
-                            mesh: meshes.add(chunk.mesh),
-                            material: materials.add(material.clone()),
-                            transform: Transform::from_xyz(
-                                chunk.absolute_position.x as f32,
-                                chunk.absolute_position.y as f32,
-                                chunk.absolute_position.z as f32,
-                            ),
-                            ..default()
-                        },
-                        // RaycastMesh::<TerrainRaycastSet>::default(),
-                    ));
+                    entity_command.insert((MaterialMeshBundle {
+                        mesh: meshes.add(chunk.mesh),
+                        material: materials.add(material.clone()),
+                        transform: Transform::from_xyz(
+                            chunk.absolute_position.x as f32,
+                            chunk.absolute_position.y as f32,
+                            chunk.absolute_position.z as f32,
+                        ),
+                        ..default()
+                    },));
 
                     commands.entity(entity).remove::<ComputeChunk>();
                     *chunk_states.get_mut(entity).unwrap().1 = ChunkState::Rendered;
-
-                    // world.spawn_chunk(Chunk {
-                    //     coordinates: ChunkCoordinates(chunk.absolute_position),
-                    //     absolute_position: chunk.absolute_position,
-                    //     grid: chunk.grid,
-                    // });
                 }
             }
         }
@@ -226,14 +220,14 @@ impl ChunkLoaderPlugin {
 
             let meshing_timer = Instant::now();
             let mesh = ChunkMesh::new()
-                .mesh_grid(&chunk.read().grid.as_ref().unwrap(), world)
+                .mesh_grid(&chunk.read().grid.as_ref().unwrap())
                 .mesh();
             let meshing_duration = meshing_timer.elapsed();
             ComputeChunkResult {
                 mesh,
                 absolute_position,
-                generation_duration,
-                meshing_duration,
+                generation_duration: generation_duration.into(),
+                meshing_duration: meshing_duration.into(),
             }
         })
     }

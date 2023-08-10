@@ -384,11 +384,16 @@ use bevy::pbr::{
     AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, ParallaxMappingMethod,
     PBR_PREPASS_SHADER_HANDLE,
 };
+use bevy::prelude::Mesh;
 use bevy::reflect::{std_traits::ReflectDefault, Reflect, TypeUuid};
+use bevy::render::mesh::MeshVertexAttribute;
 use bevy::render::{
     color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
     texture::Image,
 };
+
+pub const ATTRIBUTE_BASE_VOXEL_ID: MeshVertexAttribute =
+    MeshVertexAttribute::new("BaseVoxelIndices", 281114372, VertexFormat::Uint32);
 
 #[derive(AsBindGroup, Reflect, Debug, Clone, TypeUuid)]
 #[uuid = "3e82975c-30cf-48bf-a825-9f21d0749070"]
@@ -905,7 +910,7 @@ impl Material for TerrainMaterial {
     fn specialize(
         _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayout,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         if let Some(fragment) = descriptor.fragment.as_mut() {
@@ -925,6 +930,36 @@ impl Material for TerrainMaterial {
         if let Some(depth_stencil) = descriptor.depth_stencil.as_mut() {
             depth_stencil.bias.constant = key.bind_group_data.depth_bias;
         }
+
+        let shader_defs = &mut descriptor.vertex.shader_defs;
+        let mut vertex_attributes = Vec::new();
+
+        if layout.contains(Mesh::ATTRIBUTE_POSITION) {
+            shader_defs.push("VERTEX_POSITIONS".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
+        }
+
+        if layout.contains(Mesh::ATTRIBUTE_NORMAL) {
+            shader_defs.push("VERTEX_NORMALS".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
+        }
+
+        if layout.contains(Mesh::ATTRIBUTE_UV_0) {
+            shader_defs.push("VERTEX_UVS".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
+        }
+
+        if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
+            shader_defs.push("VERTEX_TANGENTS".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
+        }
+
+        if layout.contains(Mesh::ATTRIBUTE_COLOR) {
+            shader_defs.push("VERTEX_COLORS".into());
+            vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
+        }
+
+        descriptor.vertex.buffers = vec![layout.get_layout(&vertex_attributes)?];
         Ok(())
     }
 
@@ -933,6 +968,10 @@ impl Material for TerrainMaterial {
     }
 
     fn fragment_shader() -> ShaderRef {
+        "shaders/pbr.wgsl".into()
+    }
+
+    fn vertex_shader() -> ShaderRef {
         "shaders/pbr.wgsl".into()
     }
 

@@ -44,7 +44,7 @@ impl VoxelMesh {
             let adjacent_voxel = grid.voxel_at_pos(side.adjacent_position(self.position));
             let adjacent_shape = adjacent_voxel
                 .map(|voxel| voxel.shape)
-                .unwrap_or(Shape::EMPTY);
+                .unwrap_or(Shape::FULL);
             let adjacent_side_descriptor =
                 SideDescriptor::from_shape_descriptor(&adjacent_shape.into(), side.opposite());
 

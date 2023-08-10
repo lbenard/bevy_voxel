@@ -1,5 +1,5 @@
 use crate::world::{
-    chunk::{Grid, CHUNK_SIZE},
+    chunk::{Grid, CHUNK_LENGTH, CHUNK_SIZE},
     voxel::{
         material,
         shape::{ShapeDescriptor, Volume, SHAPE_DESCRIPTOR_TO_VOXEL_INDEX_MAP},
@@ -17,7 +17,7 @@ impl Materializator for DefaultMaterializator {
     fn materialize(&self, chunk: &Terrain) -> Grid {
         // todo: this is bof
         let extended_size = CHUNK_SIZE + (UVec3::ONE * 2);
-        let grid_shape = ndshape::ConstShape3u32::<64, 64, 64> {};
+        let grid_shape = ndshape::ConstShape3u32::<CHUNK_LENGTH, CHUNK_LENGTH, CHUNK_LENGTH> {};
 
         let mut data: Vec<Option<VoxelDescriptor>> =
             vec![None; (extended_size.x * extended_size.y * extended_size.z) as usize];

@@ -1,5 +1,5 @@
 [package]
-name = "bevy-procedural"
+name = "voxel"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,15 +12,14 @@ overflow-checks = false
 [dependencies]
 bevy = "0.11.0"
 bevy-inspector-egui = "0.19"
-# bevy_atmosphere = "0.6"
-bevy_atmosphere = { git = "https://github.com/GodGotzi/bevy_atmosphere.git", branch = "master" }
+bevy_atmosphere = "0.7"
+# bevy_atmosphere = { git = "https://github.com/GodGotzi/bevy_atmosphere.git", branch = "master" }
 bevy_spectator = { git = "https://github.com/lbenard/bevy_spectator.git", branch = "system_set"}
 # bevy_spectator = { path = "../bevy_spectator" }
 # bevy_mod_raycast = "0.8"
 egui_dock = "0.4"
 egui-gizmo = "0.10"
 noise = "0.8.2"
-# simdnoise = { git = "https://github.com/verpeteren/rust-simd-noise.git", rev = "d12e1ea141488a9f4a61bf69e41a9327547efad2" }
 rayon = "1.5"
 interpolation = "*"
 futures-lite = "1.11.3"
@@ -28,6 +27,8 @@ rand = "0.8.5"
 bitflags = "1.2"
 ndshape = "0.3.0"
 parking_lot = "0.12"
+derive_more = { git = "https://github.com/JelteF/derive_more.git", branch = "master", features = ["add", "mul", "from", "into", "debug"] }
+bevy_egui = "*"
 
 [features]
 atmosphere = []

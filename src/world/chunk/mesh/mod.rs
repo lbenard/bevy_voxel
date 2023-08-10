@@ -1,6 +1,5 @@
 use crate::world::voxel::material::Material;
 use crate::world::voxel::shape::Volume;
-use crate::world::World;
 
 use bevy::prelude::{Color, Mesh};
 use bevy::{
@@ -10,6 +9,7 @@ use bevy::{
 };
 use rand::Rng;
 
+use super::material::ATTRIBUTE_BASE_VOXEL_ID;
 use super::Grid;
 
 pub mod voxel;
@@ -36,7 +36,7 @@ impl ChunkMesh {
         }
     }
 
-    pub fn mesh_grid(mut self, grid: &Grid, world: &World) -> Self {
+    pub fn mesh_grid(mut self, grid: &Grid) -> Self {
         for x in 0..grid.size.x {
             for z in 0..grid.size.z {
                 for y in 0..grid.size.y {
@@ -61,7 +61,7 @@ impl ChunkMesh {
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
         // mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, self.colors);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs);
-        // mesh.insert_attribute(ATTRIBUTE_BASE_VOXEL_ID, self.voxel_ids);
+        mesh.insert_attribute(ATTRIBUTE_BASE_VOXEL_ID, self.voxel_ids);
         mesh.set_indices(Some(Indices::U32(self.indices)));
         mesh
     }

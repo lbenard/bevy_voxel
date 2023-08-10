@@ -3,7 +3,7 @@ use bevy::{
     pbr::{ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings},
     prelude::{
         default, Camera, Camera3d, Camera3dBundle, Color, Commands, FogFalloff, FogSettings,
-        Plugin, Startup,
+        PerspectiveProjection, Plugin, Projection, Startup,
     },
 };
 #[cfg(feature = "atmosphere")]
@@ -41,6 +41,10 @@ impl PlayerPlugin {
                         clear_color: ClearColorConfig::Custom(Color::rgb(0.7, 0.8, 1.0)),
                         ..default()
                     },
+                    projection: Projection::Perspective(PerspectiveProjection {
+                        far: 5000.0,
+                        ..default()
+                    }),
                     ..default()
                 },
                 FogSettings {

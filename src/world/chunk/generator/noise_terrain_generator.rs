@@ -3,11 +3,14 @@ use interpolation::lerp;
 use ndshape::Shape as NdShape;
 use noise::{Cache, NoiseFn, SuperSimplex};
 
-use crate::world::voxel::shape::{Shape, Volume, VOXEL_INDEX_TO_SHAPE_MAP};
+use crate::world::{
+    chunk::CHUNK_LENGTH,
+    voxel::shape::{Shape, Volume, VOXEL_INDEX_TO_SHAPE_MAP},
+};
 
 use super::{Terrain, TerrainGenerator};
 
-const WORLD_HEIGHT: f64 = 64.0;
+const WORLD_HEIGHT: f64 = CHUNK_LENGTH as f64;
 
 pub struct NoiseTerrainGenerator {
     noise: Cache<SuperSimplex>,

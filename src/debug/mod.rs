@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use bevy::{prelude::*, render};
 
+pub mod stats;
+
 #[derive(Component)]
 pub struct DebugComponent;
 

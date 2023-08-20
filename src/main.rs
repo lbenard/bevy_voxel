@@ -14,7 +14,7 @@ use debug::DebugPluginBuilder;
 use environment::EnvironmentPlugin;
 use player::PlayerPlugin;
 use world::{
-    chunk::{loader::ChunkLoaderPlugin, material::TerrainMaterial},
+    chunk::{loader::ChunkLoaderPlugin, material::TerrainMaterial, CHUNK_LENGTH},
     WorldPlugin,
 };
 
@@ -52,7 +52,7 @@ fn main() {
     )
     .add_plugins((
         WorldPlugin,
-        ChunkLoaderPlugin::new(16, 24),
+        ChunkLoaderPlugin::new(CHUNK_LENGTH / 4, CHUNK_LENGTH / 2),
         MaterialPlugin::<TerrainMaterial>::default(),
         PlayerPlugin,
         EnvironmentPlugin,

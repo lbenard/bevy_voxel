@@ -10,9 +10,10 @@ pub mod loader;
 pub mod material;
 pub mod mesh;
 
-pub const CHUNK_LENGTH: u32 = 64;
-pub const CHUNK_SIZE: UVec3 = UVec3::new(CHUNK_LENGTH, CHUNK_LENGTH, CHUNK_LENGTH);
-pub type Shape = ndshape::ConstShape3u32<CHUNK_LENGTH, CHUNK_LENGTH, CHUNK_LENGTH>;
+pub const CHUNK_LENGTH: u32 = 32;
+pub const CHUNK_HEIGHT: u32 = 64;
+pub const CHUNK_SIZE: UVec3 = UVec3::new(CHUNK_LENGTH, CHUNK_HEIGHT, CHUNK_LENGTH);
+pub type Shape = ndshape::ConstShape3u32<CHUNK_LENGTH, CHUNK_HEIGHT, CHUNK_LENGTH>;
 
 #[derive(Component)]
 pub struct ChunkMarker;
@@ -36,7 +37,7 @@ pub type VoxelIndex = u8;
 pub struct Grid {
     pub size: UVec3,
     pub voxels: Vec<Option<VoxelDescriptor>>,
-    shape: ndshape::ConstShape3u32<CHUNK_LENGTH, CHUNK_LENGTH, CHUNK_LENGTH>,
+    shape: ndshape::ConstShape3u32<CHUNK_LENGTH, CHUNK_HEIGHT, CHUNK_LENGTH>,
 }
 
 impl Grid {

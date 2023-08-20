@@ -23,9 +23,11 @@ use super::{
         default_materializator::DefaultMaterializator,
         noise_terrain_generator::NoiseTerrainGenerator, Materializator, TerrainGenerator,
     },
-    material::TerrainMaterial,
+    // material::TerrainMaterial,
     mesh::ChunkMesh,
-    ChunkCoordinates, ChunkMarker, CHUNK_SIZE,
+    ChunkCoordinates,
+    ChunkMarker,
+    CHUNK_SIZE,
 };
 
 #[derive(Default, Add, Div, From, Copy, Clone, Debug)]
@@ -123,8 +125,16 @@ impl ChunkLoaderPlugin {
 
         let load_distance = render_distance.load_distance;
         let Ok((source_transform, _)) = source.get_single() else { return };
-        let coordinates =
+        let mut coordinates =
             Self::chunk_coordinates_within_range(source_transform.translation, load_distance);
+
+        // TODO: might do absolutely nothing
+        coordinates.sort_by(|a, b| {
+            let a: Vec3 = a.0.as_vec3();
+            let b: Vec3 = b.0.as_vec3();
+            let source = source_transform.translation;
+            source.distance(a).partial_cmp(&source.distance(b)).unwrap()
+        });
 
         for chunk_coordinates in coordinates {
             if world.get_chunk_mut(chunk_coordinates).is_none() {
@@ -142,11 +152,11 @@ impl ChunkLoaderPlugin {
         mut chunk_tasks: Query<(Entity, &mut ComputeChunk)>,
         mut chunk_states: Query<(Entity, &mut ChunkState)>,
         mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<TerrainMaterial>>,
+        mut materials: ResMut<Assets<StandardMaterial>>,
         #[cfg(debug_assertions)] mut generation_average: ResMut<Average<GenerationDuration>>,
         #[cfg(debug_assertions)] mut meshing_average: ResMut<Average<MeshingDuration>>,
     ) {
-        let mut material: TerrainMaterial = Color::rgb(0.1, 0.9, 0.0).into();
+        let mut material: StandardMaterial = Color::rgb(0.1, 0.9, 0.0).into();
         material.metallic = 0.0;
         material.reflectance = 0.0;
         material.perceptual_roughness = 1.0;
@@ -203,15 +213,15 @@ impl ChunkLoaderPlugin {
         thread_pool.spawn(async move {
             let generation_timer = Instant::now();
 
-            let generator = NoiseTerrainGenerator::new();
-            let materializator = DefaultMaterializator {};
             let absolute_position = IVec3::new(
                 chunk_coordinates.0.x * CHUNK_SIZE.x as i32,
                 chunk_coordinates.0.y * CHUNK_SIZE.y as i32,
                 chunk_coordinates.0.z * CHUNK_SIZE.z as i32,
             );
+            let generator = NoiseTerrainGenerator::new(absolute_position);
+            let materializator = DefaultMaterializator {};
 
-            let chunk_shape = generator.generate(absolute_position, super::Shape {});
+            let chunk_shape = generator.generate(super::Shape {});
             chunk.write().terrain = Some(chunk_shape);
             let grid = materializator.materialize(&chunk.read().terrain.as_ref().unwrap());
             chunk.write().grid = Some(grid);

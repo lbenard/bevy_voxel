@@ -1,5 +1,3 @@
-use bevy::prelude::IVec3;
-
 use crate::world::voxel::shape::Shape;
 
 use super::{Grid, VoxelIndex};
@@ -14,7 +12,7 @@ pub mod default_materializator;
 // Terrain gen goes into three different phases: shape, materialization and decoration
 
 pub trait TerrainGenerator {
-    fn generate(&self, origin: IVec3, shape: super::Shape) -> Terrain;
+    fn generate(&self, shape: super::Shape) -> Terrain;
 
     fn voxel_idx(bits: &[bool; 8]) -> VoxelIndex {
         let mut idx = 0;

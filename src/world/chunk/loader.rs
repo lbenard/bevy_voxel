@@ -21,6 +21,7 @@ use crate::world::{chunk::ChunkState, Chunk, World};
 use super::{
     generator::{
         default_materializator::DefaultMaterializator,
+        height_noise_terrain::HeightNoiseTerrainGenerator,
         noise_terrain_generator::NoiseTerrainGenerator, Materializator, TerrainGenerator,
     },
     material::{StandardMaterialExtension, TerrainMaterial},
@@ -224,7 +225,7 @@ impl ChunkLoaderPlugin {
                 chunk_coordinates.0.y * CHUNK_SIZE.y as i32,
                 chunk_coordinates.0.z * CHUNK_SIZE.z as i32,
             );
-            let generator = NoiseTerrainGenerator::new(absolute_position);
+            let generator = HeightNoiseTerrainGenerator::new(absolute_position);
             let materializator = DefaultMaterializator {};
 
             let chunk_shape = generator.generate(super::Shape {});

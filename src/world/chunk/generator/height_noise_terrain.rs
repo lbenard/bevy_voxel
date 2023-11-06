@@ -1,121 +1,91 @@
-// use bevy::prelude::{IVec3, UVec3};
-// use interpolation::lerp;
-// use noise::{NoiseFn, OpenSimplex};
+use std::intrinsics::unlikely;
 
-// use crate::world::{
-//     chunk::Grid,
-//     voxel::{
-//         material::{DIRT, GRASS, STONE},
-//         shape::Shape,
-//         VoxelDescriptor,
-//     },
-// };
+use bevy::prelude::IVec3;
+use ndshape::Shape as NdShape;
+use noise::{NoiseFn, OpenSimplex};
 
-// const WORLD_HEIGHT: f64 = 32.0;
+use crate::world::{
+    chunk::{CHUNK_HEIGHT, CHUNK_LENGTH},
+    voxel::shape::{Shape, Volume, VOXEL_INDEX_TO_SHAPE_MAP},
+};
 
-// pub struct HeightNoiseTerrain {
-//     noise: OpenSimplex,
-// }
+use super::{Terrain, TerrainGenerator};
 
-// impl HeightNoiseTerrain {
-//     #[allow(dead_code)]
-//     pub fn new() -> Self {
-//         HeightNoiseTerrain {
-//             noise: OpenSimplex::default(),
-//         }
-//     }
-// }
+const WORLD_HEIGHT: f64 = CHUNK_HEIGHT as f64 / 1.1;
+const VALUES_LENGTH: u32 = CHUNK_LENGTH + 1;
+// const VALUES_HEIGHT: u32 = CHUNK_HEIGHT + 1;
 
-// impl ChunkGenerator for HeightNoiseTerrain {
-//     fn generate(&self, origin: IVec3, chunk: &mut Grid) {
-//         for x in -1..chunk.size.x as i32 + 1 {
-//             for z in -1..chunk.size.z as i32 + 1 {
-//                 let mut depth = 0;
-//                 let div = 50.0;
-//                 let height = lerp(
-//                     &0.0,
-//                     &WORLD_HEIGHT,
-//                     &(self.noise.get([
-//                         ((x as i32 + origin.x) as f64) / div,
-//                         ((z as i32 + origin.z) as f64) / div,
-//                     ]) / 2.0
-//                         + 0.5),
-//                 ) as i32;
-//                 for y in (-1..height).rev() {
-//                     // let lower_height_treshold =
-//                     //     lerp(&-1.0, &1.0, &((origin.y + y) as f64 / WORLD_HEIGHT));
-//                     // let higher_height_treshold =
-//                     //     lerp(&-1.0, &1.0, &((origin.y + y + 1) as f64 / WORLD_HEIGHT));
-//                     // let _0 = self.noise.get([
-//                     //     ((x as i32 + origin.x) as f64) / div,
-//                     //     ((y as i32 + origin.y) as f64) / div,
-//                     //     ((z as i32 + origin.z) as f64) / div,
-//                     // ]);
-//                     // let _1 = self.noise.get([
-//                     //     ((x as i32 + origin.x + 1) as f64) / div,
-//                     //     ((y as i32 + origin.y) as f64) / div,
-//                     //     ((z as i32 + origin.z) as f64) / div,
-//                     // ]);
-//                     // let _2 = self.noise.get([
-//                     //     ((x as i32 + origin.x) as f64) / div,
-//                     //     ((y as i32 + origin.y) as f64) / div,
-//                     //     ((z as i32 + origin.z + 1) as f64) / div,
-//                     // ]);
-//                     // let _3 = self.noise.get([
-//                     //     ((x as i32 + origin.x + 1) as f64) / div,
-//                     //     ((y as i32 + origin.y) as f64) / div,
-//                     //     ((z as i32 + origin.z + 1) as f64) / div,
-//                     // ]);
-//                     // let _4 = self.noise.get([
-//                     //     ((x as i32 + origin.x) as f64) / div,
-//                     //     ((y as i32 + origin.y + 1) as f64) / div,
-//                     //     ((z as i32 + origin.z) as f64) / div,
-//                     // ]);
-//                     // let _5 = self.noise.get([
-//                     //     ((x as i32 + origin.x + 1) as f64) / div,
-//                     //     ((y as i32 + origin.y + 1) as f64) / div,
-//                     //     ((z as i32 + origin.z) as f64) / div,
-//                     // ]);
-//                     // let _6 = self.noise.get([
-//                     //     ((x as i32 + origin.x) as f64) / div,
-//                     //     ((y as i32 + origin.y + 1) as f64) / div,
-//                     //     ((z as i32 + origin.z + 1) as f64) / div,
-//                     // ]);
-//                     // let _7 = self.noise.get([
-//                     //     ((x as i32 + origin.x + 1) as f64) / div,
-//                     //     ((y as i32 + origin.y + 1) as f64) / div,
-//                     //     ((z as i32 + origin.z + 1) as f64) / div,
-//                     // ]);
-//                     // let index = Self::voxel_idx(&[
-//                     //     _0 > lower_height_treshold,
-//                     //     _1 > lower_height_treshold,
-//                     //     _2 > lower_height_treshold,
-//                     //     _3 > lower_height_treshold,
-//                     //     _4 > higher_height_treshold,
-//                     //     _5 > higher_height_treshold,
-//                     //     _6 > higher_height_treshold,
-//                     //     _7 > higher_height_treshold,
-//                     // ]);
-//                     let grid_index = chunk.pos_idx(UVec3 {
-//                         x: (x + 1) as u32,
-//                         y: (y + 1) as u32,
-//                         z: (z + 1) as u32,
-//                     });
+type MapShape = ndshape::ConstShape2u32<VALUES_LENGTH, VALUES_LENGTH>;
 
-//                     // Fill invalid voxels with empty or full voxels depending on the index
-//                     let shape = Shape::FULL;
-//                     depth += 1;
-//                     let material = if depth <= 3 {
-//                         GRASS
-//                     } else if depth <= 8 {
-//                         DIRT
-//                     } else {
-//                         STONE
-//                     };
-//                     let voxel = Some(VoxelDescriptor { shape, material });
-//                     chunk.voxels[grid_index] = voxel;
-//                 }
-//             }
-//         }
-//     }
-// }
+pub struct HeightNoiseTerrainGenerator {
+    origin: IVec3,
+    noise_map: Vec<f32>,
+    noise_map_shape: MapShape,
+}
+
+impl HeightNoiseTerrainGenerator {
+    #[allow(dead_code)]
+    pub fn new(origin: IVec3) -> Self {
+        let noise = OpenSimplex::default();
+        let div = 100.0;
+
+        let noise_map_shape = MapShape {};
+        let noise_map: Vec<f32> = (0..noise_map_shape.size())
+            .map(|i| {
+                let [x, y] = noise_map_shape.delinearize(i);
+                noise.get([
+                    ((x as i32 + origin.x) as f64) / div,
+                    ((y as i32 + origin.z) as f64) / div,
+                ]) as f32
+            })
+            .collect();
+        HeightNoiseTerrainGenerator {
+            origin,
+            noise_map,
+            noise_map_shape,
+        }
+    }
+}
+
+impl TerrainGenerator for HeightNoiseTerrainGenerator {
+    fn generate(&self, shape: crate::world::chunk::Shape) -> Terrain {
+        let data = (0..shape.size())
+            .map(|i| {
+                let [x, y, z] = shape.delinearize(i);
+
+                let _0 = self.noise_map[self.noise_map_shape.linearize([x, z]) as usize];
+                let _1 = self.noise_map[self.noise_map_shape.linearize([x + 1, z]) as usize];
+                let _2 = self.noise_map[self.noise_map_shape.linearize([x, z + 1]) as usize];
+                let _3 = self.noise_map[self.noise_map_shape.linearize([x + 1, z + 1]) as usize];
+
+                let _0 = ((_0 + 1.0) / 2.0 * WORLD_HEIGHT as f32) as u32;
+                let _1 = ((_1 + 1.0) / 2.0 * WORLD_HEIGHT as f32) as u32;
+                let _2 = ((_2 + 1.0) / 2.0 * WORLD_HEIGHT as f32) as u32;
+                let _3 = ((_3 + 1.0) / 2.0 * WORLD_HEIGHT as f32) as u32;
+
+                let index = Self::voxel_idx(&[
+                    self.origin.y as u32 + y < _0,
+                    self.origin.y as u32 + y < _1,
+                    self.origin.y as u32 + y < _2,
+                    self.origin.y as u32 + y < _3,
+                    self.origin.y as u32 + y + 1 < _0,
+                    self.origin.y as u32 + y + 1 < _1,
+                    self.origin.y as u32 + y + 1 < _2,
+                    self.origin.y as u32 + y + 1 < _3,
+                ]);
+
+                // Fill invalid voxels with empty or full voxels depending on the index
+                let mut shape = VOXEL_INDEX_TO_SHAPE_MAP[index as usize];
+                if unlikely(shape.volume == Volume::ZeroSixth && index > 0) {
+                    shape = if index.count_ones() > 4 {
+                        Shape::FULL
+                    } else {
+                        Shape::EMPTY
+                    };
+                }
+                shape
+            })
+            .collect();
+        Terrain { shape, data }
+    }
+}

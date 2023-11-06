@@ -33,7 +33,7 @@ fn main() {
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     resolution: (1920.0, 1080.0).into(),
-                    present_mode: PresentMode::Immediate,
+                    present_mode: PresentMode::Mailbox,
                     ..default()
                 }),
                 ..default()
@@ -61,7 +61,7 @@ fn main() {
 
     #[cfg(debug_assertions)]
     app.add_plugins((
-        DebugPluginBuilder::new().debug_sphere_at_origin().build(),
+        DebugPluginBuilder::new().debug_playground().build(),
         WorldInspectorPlugin::new(),
     ));
 

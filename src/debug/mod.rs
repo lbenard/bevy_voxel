@@ -1,6 +1,10 @@
 use std::time::Duration;
 
-use bevy::{prelude::*, render};
+use bevy::{pbr::ExtendedMaterial, prelude::*, render};
+
+use crate::world::chunk::material::{
+    StandardMaterialExtension, TerrainMaterial, ATTRIBUTE_VOXEL_ID,
+};
 
 pub mod stats;
 
@@ -9,7 +13,7 @@ pub struct DebugComponent;
 
 #[derive(Default)]
 pub struct DebugPluginBuilder {
-    debug_sphere_at_origin: bool,
+    debug_playground: bool,
     adhd_autoclose: Option<Duration>,
 }
 
@@ -20,14 +24,14 @@ impl DebugPluginBuilder {
 
     pub fn build(self) -> DebugPlugin {
         DebugPlugin {
-            debug_sphere_at_origin: self.debug_sphere_at_origin,
+            debug_playground: self.debug_playground,
             adhd_autoclose: self.adhd_autoclose,
         }
     }
 
     #[allow(dead_code)]
-    pub fn debug_sphere_at_origin(mut self) -> Self {
-        self.debug_sphere_at_origin = true;
+    pub fn debug_playground(mut self) -> Self {
+        self.debug_playground = true;
         self
     }
 
@@ -42,14 +46,14 @@ impl DebugPluginBuilder {
 struct AutoClose(Timer);
 
 pub struct DebugPlugin {
-    debug_sphere_at_origin: bool,
+    debug_playground: bool,
     adhd_autoclose: Option<Duration>,
 }
 
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
-        if self.debug_sphere_at_origin {
-            app.add_systems(Startup, Self::origin_sphere);
+        if self.debug_playground {
+            app.add_systems(Startup, Self::debug_playground);
         }
         if let Some(duration) = self.adhd_autoclose {
             app.insert_resource(AutoClose(Timer::new(duration, TimerMode::Once)))
@@ -59,17 +63,36 @@ impl Plugin for DebugPlugin {
 }
 
 impl DebugPlugin {
-    fn origin_sphere(
+    fn debug_playground(
         mut commands: Commands,
         mut meshes: ResMut<Assets<render::mesh::Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
+        mut standard_material: ResMut<Assets<StandardMaterial>>,
+        mut terrain_material: ResMut<Assets<TerrainMaterial>>,
     ) {
         Self::spawn_sphere(
             &mut commands,
             &mut meshes,
-            &mut materials,
+            &mut standard_material,
             UVec3 { x: 0, y: 0, z: 0 },
         );
+
+        let mesh = Mesh::from(shape::Cube { size: 1.0 }).with_inserted_attribute(
+            ATTRIBUTE_VOXEL_ID,
+            vec![
+                1_u32, 1_u32, 1_u32, 1_u32, 2_u32, 2_u32, 2_u32, 2_u32, 3_u32, 3_u32, 3_u32, 3_u32,
+                3_u32, 3_u32, 3_u32, 3_u32, 2_u32, 2_u32, 2_u32, 2_u32, 1_u32, 1_u32, 1_u32, 1_u32,
+            ],
+        );
+
+        commands.spawn(MaterialMeshBundle {
+            mesh: meshes.add(mesh),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0),
+            material: terrain_material.add(ExtendedMaterial {
+                base: StandardMaterial::default(),
+                extension: StandardMaterialExtension {},
+            }),
+            ..default()
+        });
     }
 
     fn spawn_sphere(

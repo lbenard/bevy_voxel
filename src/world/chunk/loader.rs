@@ -23,6 +23,7 @@ use super::{
         default_materializator::DefaultMaterializator,
         noise_terrain_generator::NoiseTerrainGenerator, Materializator, TerrainGenerator,
     },
+    material::{StandardMaterialExtension, TerrainMaterial},
     // material::TerrainMaterial,
     mesh::ChunkMesh,
     ChunkCoordinates,
@@ -64,7 +65,7 @@ impl Plugin for ChunkLoaderPlugin {
                 )
                     .chain()
                     .after(SpectatorSystemSet),
-                Self::set_images_to_nearest,
+                // Self::set_images_to_nearest,
             ),
         )
         .insert_resource(RenderDistance {
@@ -72,16 +73,16 @@ impl Plugin for ChunkLoaderPlugin {
             unload_distance: self.default_unload_distance,
         });
 
-        #[cfg(debug_assertions)]
-        app.init_resource::<Average<GenerationDuration>>()
-            .init_resource::<Average<MeshingDuration>>()
-            .add_systems(
-                Update,
-                (
-                    Average::<GenerationDuration>::egui_debug,
-                    Average::<MeshingDuration>::egui_debug,
-                ),
-            );
+        // #[cfg(debug_assertions)]
+        // app.init_resource::<Average<GenerationDuration>>()
+        //     .init_resource::<Average<MeshingDuration>>()
+        //     .add_systems(
+        //         Update,
+        //         (
+        //             Average::<GenerationDuration>::egui_debug,
+        //             Average::<MeshingDuration>::egui_debug,
+        //         ),
+        //     );
     }
 }
 
@@ -152,21 +153,26 @@ impl ChunkLoaderPlugin {
         mut chunk_tasks: Query<(Entity, &mut ComputeChunk)>,
         mut chunk_states: Query<(Entity, &mut ChunkState)>,
         mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
-        #[cfg(debug_assertions)] mut generation_average: ResMut<Average<GenerationDuration>>,
-        #[cfg(debug_assertions)] mut meshing_average: ResMut<Average<MeshingDuration>>,
+        mut materials: ResMut<Assets<TerrainMaterial>>,
+        // #[cfg(debug_assertions)] mut generation_average: ResMut<Average<GenerationDuration>>,
+        // #[cfg(debug_assertions)] mut meshing_average: ResMut<Average<MeshingDuration>>,
     ) {
-        let mut material: StandardMaterial = Color::rgb(0.1, 0.9, 0.0).into();
-        material.metallic = 0.0;
-        material.reflectance = 0.0;
-        material.perceptual_roughness = 1.0;
+        let mut material = TerrainMaterial {
+            base: StandardMaterial {
+                metallic: 0.0,
+                reflectance: 0.0,
+                perceptual_roughness: 1.0,
+                ..default()
+            },
+            extension: StandardMaterialExtension {},
+        };
 
         for (entity, mut chunk_task) in &mut chunk_tasks.iter_mut() {
             if let Some(chunk) = future::block_on(future::poll_once(&mut chunk_task.0)) {
-                #[cfg(debug_assertions)]
-                generation_average.add(chunk.generation_duration);
-                #[cfg(debug_assertions)]
-                meshing_average.add(chunk.meshing_duration);
+                // #[cfg(debug_assertions)]
+                // generation_average.add(chunk.generation_duration);
+                // #[cfg(debug_assertions)]
+                // meshing_average.add(chunk.meshing_duration);
 
                 if let Some(mut entity_command) = commands.get_entity(entity) {
                     entity_command.insert((MaterialMeshBundle {
@@ -187,21 +193,21 @@ impl ChunkLoaderPlugin {
         }
     }
 
-    fn set_images_to_nearest(
-        mut ev_asset: EventReader<AssetEvent<Image>>,
-        mut assets: ResMut<Assets<Image>>,
-    ) {
-        for ev in ev_asset.iter() {
-            match ev {
-                AssetEvent::Created { handle } => {
-                    if let Some(image) = assets.get_mut(handle) {
-                        image.sampler_descriptor = ImageSampler::nearest();
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
+    // fn set_images_to_nearest(
+    //     mut ev_asset: EventReader<AssetEvent<Image>>,
+    //     mut assets: ResMut<Assets<Image>>,
+    // ) {
+    //     for ev in ev_asset.iter() {
+    //         match ev {
+    //             AssetEvent::Created { handle } => {
+    //                 if let Some(image) = assets.get_mut(handle) {
+    //                     image.sampler_descriptor = ImageSampler::nearest();
+    //                 }
+    //             }
+    //             _ => {}
+    //         }
+    //     }
+    // }
 
     fn new_chunk_task(
         thread_pool: &AsyncComputeTaskPool,

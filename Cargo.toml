@@ -10,12 +10,10 @@ opt-level = 3
 overflow-checks = false
 
 [dependencies]
-bevy = "0.11.0"
-bevy-inspector-egui = "0.19"
-bevy_atmosphere = "0.7"
-# bevy_atmosphere = { git = "https://github.com/GodGotzi/bevy_atmosphere.git", branch = "master" }
-bevy_spectator = { git = "https://github.com/lbenard/bevy_spectator.git", branch = "system_set"}
-# bevy_spectator = { path = "../bevy_spectator" }
+bevy = { version = "0.12.0", features = ["wayland"] }
+bevy-inspector-egui = "0.21"
+bevy_atmosphere = { version = "0.7", optional = true }
+bevy_spectator = { git = "https://github.com/lbenard/bevy_spectator.git", branch = "system_set" }
 # bevy_mod_raycast = "0.8"
 egui_dock = "0.4"
 egui-gizmo = "0.10"
@@ -31,4 +29,4 @@ derive_more = { git = "https://github.com/JelteF/derive_more.git", branch = "mas
 bevy_egui = "*"
 
 [features]
-atmosphere = []
+atmosphere = ["dep:bevy_atmosphere"]

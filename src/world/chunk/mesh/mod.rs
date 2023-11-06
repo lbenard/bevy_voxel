@@ -1,7 +1,7 @@
 use crate::world::voxel::material::Material;
 use crate::world::voxel::shape::Volume;
 
-use bevy::prelude::{Color, Mesh};
+use bevy::prelude::Mesh;
 use bevy::{
     math::UVec3,
     prelude::Vec3,
@@ -9,7 +9,7 @@ use bevy::{
 };
 use rand::Rng;
 
-use super::material::ATTRIBUTE_BASE_VOXEL_ID;
+use super::material::ATTRIBUTE_VOXEL_ID;
 use super::Grid;
 
 pub mod voxel;
@@ -17,7 +17,6 @@ pub mod voxel;
 pub struct ChunkMesh {
     vertices: Vec<[f32; 3]>,
     normals: Vec<[f32; 3]>,
-    colors: Vec<[f32; 4]>,
     uvs: Vec<[f32; 2]>,
     voxel_ids: Vec<u32>,
     indices: Vec<u32>,
@@ -29,7 +28,6 @@ impl ChunkMesh {
             // TODO: allocate with capacity to avoid obvious vector re-allocations
             vertices: Vec::new(),
             normals: Vec::new(),
-            colors: Vec::new(),
             uvs: Vec::new(),
             voxel_ids: Vec::new(),
             indices: Vec::new(),
@@ -59,9 +57,8 @@ impl ChunkMesh {
 
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.vertices);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
-        // mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, self.colors);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs);
-        mesh.insert_attribute(ATTRIBUTE_BASE_VOXEL_ID, self.voxel_ids);
+        // mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs);
+        mesh.insert_attribute(ATTRIBUTE_VOXEL_ID, self.voxel_ids);
         mesh.set_indices(Some(Indices::U32(self.indices)));
         mesh
     }
@@ -95,8 +92,6 @@ impl ChunkMesh {
 
             // All three vertices should share the same normal because that's how lowpoly works
             self.normals.append(&mut vec![normal, normal, normal]);
-            let color = Color::rgba(1.0, 0.0, 0.0, 1.0).as_rgba_f32();
-            self.colors.append(&mut vec![color, color, color]);
             self.uvs
                 .append(&mut vec![[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]]);
             self.voxel_ids

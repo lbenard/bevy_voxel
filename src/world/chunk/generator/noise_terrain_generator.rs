@@ -10,7 +10,7 @@ use crate::world::{
     voxel::shape::{Shape, Volume, VOXEL_INDEX_TO_SHAPE_MAP},
 };
 
-use super::{Terrain, TerrainGenerator};
+use super::{Grid, TerrainGenerator};
 
 const WORLD_HEIGHT: f64 = CHUNK_HEIGHT as f64 / 1.5;
 const VALUES_LENGTH: u32 = CHUNK_LENGTH + 1;
@@ -51,7 +51,7 @@ impl NoiseTerrainGenerator {
 }
 
 impl TerrainGenerator for NoiseTerrainGenerator {
-    fn generate(&self, shape: crate::world::chunk::Shape) -> Terrain {
+    fn generate(&self, shape: crate::world::chunk::Shape) -> Grid {
         let data = (0..shape.size())
             .map(|i| {
                 let [x, y, z] = shape.delinearize(i);
@@ -97,6 +97,6 @@ impl TerrainGenerator for NoiseTerrainGenerator {
                 shape
             })
             .collect();
-        Terrain { shape, data }
+        Grid { shape, data }
     }
 }

@@ -14,7 +14,7 @@ use super::{Materializator, Terrain};
 pub struct DefaultMaterializator;
 
 impl Materializator for DefaultMaterializator {
-    fn materialize(&self, chunk: &Terrain) -> Grid {
+    fn materialize(&self, chunk: &Grid) -> Terrain {
         // todo: this is bof
         let extended_size = CHUNK_SIZE + (UVec3::ONE * 2);
         let grid_shape = crate::world::chunk::Shape {};
@@ -46,7 +46,7 @@ impl Materializator for DefaultMaterializator {
                         }
                     };
 
-                    let material = if depth <= 3 {
+                    let material = if depth <= 2 {
                         material::GRASS
                     } else if depth <= 8 {
                         material::DIRT
@@ -59,7 +59,7 @@ impl Materializator for DefaultMaterializator {
                 }
             }
         }
-        Grid {
+        Terrain {
             size: CHUNK_SIZE,
             // extended_size: CHUNK_SIZE + (UVec3::ONE * 2),
             voxels: data,

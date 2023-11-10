@@ -1,12 +1,12 @@
 use bevy::{
-    prelude::{Entity, IVec3, Plugin, Resource, UVec3},
+    prelude::{Entity, IVec3, Plugin, Resource},
     utils::HashMap,
 };
 use parking_lot::RwLock;
 use std::sync::Arc;
 
 use self::{
-    chunk::{generator::Terrain, ChunkCoordinates, Grid, CHUNK_SIZE},
+    chunk::{Chunk, CHUNK_SIZE},
     voxel::Voxel,
 };
 
@@ -24,7 +24,7 @@ impl Plugin for WorldPlugin {
 
 #[derive(Resource, Default)]
 pub struct World {
-    pub chunks: HashMap<ChunkCoordinates, Arc<RwLock<Chunk>>>,
+    pub chunks: HashMap<chunk::Coordinates, Arc<RwLock<Chunk>>>,
 }
 
 impl Into<Arc<RwLock<Chunk>>> for Chunk {
@@ -34,68 +34,44 @@ impl Into<Arc<RwLock<Chunk>>> for Chunk {
 }
 
 impl World {
-    pub fn spawn_chunk(&mut self, entity: Entity, coordinates: ChunkCoordinates) {
+    pub fn spawn_chunk(&mut self, entity: Entity, coordinates: chunk::Coordinates) {
         self.chunks.insert(
             coordinates,
             Chunk {
                 entity,
                 coordinates,
                 absolute_position: coordinates.0 * CHUNK_SIZE.as_ivec3(),
-                terrain: None,
                 grid: None,
+                terrain: None,
             }
             .into(),
         );
     }
 
     #[allow(dead_code)]
-    pub fn remove_chunk(&mut self, coordinates: ChunkCoordinates) {
+    pub fn remove_chunk(&mut self, coordinates: chunk::Coordinates) {
         self.chunks.remove(&coordinates);
     }
 
     #[allow(dead_code)]
-    pub fn get_chunk(&self, coordinates: ChunkCoordinates) -> Option<&Arc<RwLock<Chunk>>> {
+    pub fn get_chunk(&self, coordinates: chunk::Coordinates) -> Option<&Arc<RwLock<Chunk>>> {
         self.chunks.get(&coordinates)
     }
 
     #[allow(dead_code)]
     pub fn get_chunk_mut(
         &mut self,
-        coordinates: ChunkCoordinates,
+        coordinates: chunk::Coordinates,
     ) -> Option<&mut Arc<RwLock<Chunk>>> {
         self.chunks.get_mut(&coordinates)
     }
 
     #[allow(dead_code)]
     pub fn get_voxel(self, position: IVec3) -> Option<Voxel> {
-        let chunk_coordinates = ChunkCoordinates(position / CHUNK_SIZE.as_ivec3());
+        let chunk_coordinates = chunk::Coordinates(position / CHUNK_SIZE.as_ivec3());
         let chunk = self.get_chunk(chunk_coordinates)?.read();
         let relative_position = (position - chunk_coordinates.0 * CHUNK_SIZE.as_ivec3()).as_uvec3();
         let voxel = chunk.get_voxel(relative_position)?;
         Some(voxel)
-    }
-}
-
-pub struct Chunk {
-    entity: Entity,
-    coordinates: ChunkCoordinates,
-    absolute_position: IVec3,
-    pub terrain: Option<Terrain>,
-    pub grid: Option<Grid>, // to replace, grid has what's needed for meshing
-}
-
-impl Chunk {
-    #[allow(dead_code)]
-    pub fn get_voxel(&self, relative_position: UVec3) -> Option<Voxel> {
-        if let Some(grid) = &self.grid {
-            let voxel_descriptor = grid.voxel_at_pos(relative_position.as_ivec3())?;
-            Some(Voxel {
-                position: self.absolute_position + relative_position.as_ivec3(),
-                shape: voxel_descriptor.shape,
-                material: voxel_descriptor.material,
-            })
-        } else {
-            None
-        }
     }
 }

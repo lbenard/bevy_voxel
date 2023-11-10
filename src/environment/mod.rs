@@ -6,8 +6,8 @@ use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::{
         default, AmbientLight, Camera3d, Color, Commands, Component, DirectionalLight,
-        DirectionalLightBundle, FogSettings, Plugin, Quat, Query, ReflectResource, Res, ResMut,
-        Resource, Startup, Transform, Update, With,
+        DirectionalLightBundle, FogSettings, Plugin, PointLight, PointLightBundle, Quat, Query,
+        ReflectResource, Res, ResMut, Resource, Startup, Transform, Update, With, Without,
     },
     reflect::Reflect,
     time::{Time, Timer, TimerMode},
@@ -18,6 +18,7 @@ use bevy_atmosphere::{
     system_param::AtmosphereMut,
 };
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
+use bevy_spectator::Spectator;
 
 pub struct EnvironmentPlugin;
 
@@ -42,6 +43,10 @@ impl Plugin for EnvironmentPlugin {
         }
         #[cfg(not(feature = "atmosphere"))]
         app.add_systems(Update, Self::update_clear_color);
+
+        // app.add_systems(Startup, Self::setup_player_light)
+        //     .add_systems(Update, Self::update_player_light);
+
         app.insert_resource(CycleTimer(Timer::new(
             bevy::utils::Duration::from_millis(16), // Update our atmosphere every 50ms (in a real game, this would be much slower, but for the sake of an example we use a faster update)
             TimerMode::Repeating,
@@ -77,6 +82,26 @@ impl EnvironmentPlugin {
             color: Color::rgb(1.0, 1.0, 1.0),
             brightness: 1.0,
         });
+    }
+
+    fn setup_player_light(mut commands: Commands) {
+        commands.spawn(PointLightBundle {
+            point_light: PointLight {
+                range: 100.0,
+                ..default()
+            },
+            ..default()
+        });
+    }
+
+    fn update_player_light(
+        player: Query<(&Transform,), With<Spectator>>,
+        mut point_light: Query<(&mut Transform,), (With<PointLight>, Without<Spectator>)>,
+    ) {
+        let player = player.single();
+        let mut point_light = point_light.single_mut();
+
+        point_light.0.translation = player.0.translation;
     }
 
     fn daylight_cycle(

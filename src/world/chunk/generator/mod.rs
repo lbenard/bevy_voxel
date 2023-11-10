@@ -1,6 +1,6 @@
 use crate::world::voxel::shape::Shape;
 
-use super::{Grid, VoxelIndex};
+use super::{Terrain, VoxelIndex};
 
 // SHape generators
 pub mod height_noise_terrain;
@@ -12,7 +12,7 @@ pub mod default_materializator;
 // Terrain gen goes into three different phases: shape, materialization and decoration
 
 pub trait TerrainGenerator {
-    fn generate(&self, shape: super::Shape) -> Terrain;
+    fn generate(&self, shape: super::Shape) -> Grid;
 
     fn voxel_idx(bits: &[bool; 8]) -> VoxelIndex {
         let mut idx = 0;
@@ -28,11 +28,11 @@ pub trait TerrainGenerator {
     }
 }
 
-pub struct Terrain {
+pub struct Grid {
     shape: super::Shape,
     pub data: Vec<Shape>,
 }
 
 pub trait Materializator {
-    fn materialize(&self, chunk: &Terrain) -> Grid;
+    fn materialize(&self, chunk: &Grid) -> Terrain;
 }

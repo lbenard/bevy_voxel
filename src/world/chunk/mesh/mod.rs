@@ -10,7 +10,7 @@ use bevy::{
 use rand::Rng;
 
 use super::material::ATTRIBUTE_VOXEL_ID;
-use super::Grid;
+use super::Terrain;
 
 pub mod voxel;
 
@@ -34,17 +34,17 @@ impl ChunkMesh {
         }
     }
 
-    pub fn mesh_grid(mut self, grid: &Grid) -> Self {
-        for x in 0..grid.size.x {
-            for z in 0..grid.size.z {
-                for y in 0..grid.size.y {
+    pub fn mesh_terrain(mut self, terrain: &Terrain) -> Self {
+        for x in 0..terrain.size.x {
+            for z in 0..terrain.size.z {
+                for y in 0..terrain.size.y {
                     let pos = UVec3 { x, y: y as u32, z };
-                    let voxel_mesh = grid.voxel_mesh_at_pos(pos);
+                    let voxel_mesh = terrain.voxel_mesh_at_pos(pos);
                     if let Some(voxel_mesh) = voxel_mesh {
                         if voxel_mesh.voxel.shape.volume == Volume::ZeroSixth {
                             continue;
                         }
-                        voxel_mesh.mesh(&mut self, &grid);
+                        voxel_mesh.mesh(&mut self, &terrain);
                     }
                 }
             }

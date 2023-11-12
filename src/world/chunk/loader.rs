@@ -60,28 +60,6 @@ impl ChunkLoaderPlugin {
         }
     }
 
-    fn unload_chunks(
-        mut commands: Commands,
-        source: Query<(&Transform, &ChunkLoaderSource)>,
-        render_distance: Res<RenderDistance>,
-        mut world: ResMut<World>,
-    ) {
-        let unload_distance = render_distance.unload_distance;
-        let Ok((source_transform, _)) = source.get_single() else { return };
-        let coordinates =
-            Self::chunk_coordinates_within_range(source_transform.translation, unload_distance);
-        let out_of_range = world
-            .chunks
-            .extract_if(|k, _v| !coordinates.contains(k))
-            .map(|(_k, v)| v)
-            .collect::<Vec<Arc<RwLock<Chunk>>>>();
-        for chunk in out_of_range {
-            let chunk = chunk.read();
-            commands.entity(chunk.entity).despawn();
-            world.remove_chunk(chunk.coordinates);
-        }
-    }
-
     fn load_chunks(
         mut commands: Commands,
         source: Query<(&Transform, &ChunkLoaderSource)>,
@@ -110,6 +88,28 @@ impl ChunkLoaderPlugin {
                 let task = chunk::tasks::new_generate_chunk_task(chunk, chunk_coordinates);
                 chunk_entity.insert(chunk::tasks::GenerateChunk(task));
             }
+        }
+    }
+
+    fn unload_chunks(
+        mut commands: Commands,
+        source: Query<(&Transform, &ChunkLoaderSource)>,
+        render_distance: Res<RenderDistance>,
+        mut world: ResMut<World>,
+    ) {
+        let unload_distance = render_distance.unload_distance;
+        let Ok((source_transform, _)) = source.get_single() else { return };
+        let coordinates =
+            Self::chunk_coordinates_within_range(source_transform.translation, unload_distance);
+        let out_of_range = world
+            .chunks
+            .extract_if(|k, _v| !coordinates.contains(k))
+            .map(|(_k, v)| v)
+            .collect::<Vec<Arc<RwLock<Chunk>>>>();
+        for chunk in out_of_range {
+            let chunk = chunk.read();
+            commands.entity(chunk.entity).despawn();
+            world.remove_chunk(chunk.coordinates);
         }
     }
 

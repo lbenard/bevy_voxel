@@ -22,7 +22,6 @@ pub mod loader;
 pub mod material;
 pub mod mesh;
 pub mod tasks;
-pub use tasks::*;
 
 pub const CHUNK_LENGTH: u32 = 32;
 pub const CHUNK_HEIGHT: u32 = 128;
@@ -41,7 +40,7 @@ pub struct Chunk {
     pub coordinates: Coordinates,
     pub absolute_position: IVec3,
     pub grid: Option<Grid>,
-    pub terrain: Option<Terrain>, // to replace, grid has what's needed for meshing
+    pub terrain: Option<Terrain>,
 }
 
 impl Chunk {
@@ -123,7 +122,7 @@ impl Chunk {
                     ),
                     ..default()
                 },));
-                entity.remove::<tasks::GenerateChunk>();
+                entity.remove::<tasks::MeshChunk>();
             }
         }
     }

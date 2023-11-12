@@ -14,6 +14,7 @@ use super::Terrain;
 
 pub mod voxel;
 
+#[derive(Default)]
 pub struct ChunkMesh {
     vertices: Vec<[f32; 3]>,
     normals: Vec<[f32; 3]>,
@@ -23,28 +24,17 @@ pub struct ChunkMesh {
 }
 
 impl ChunkMesh {
-    pub fn new() -> Self {
-        Self {
-            // TODO: allocate with capacity to avoid obvious vector re-allocations
-            vertices: Vec::new(),
-            normals: Vec::new(),
-            uvs: Vec::new(),
-            voxel_ids: Vec::new(),
-            indices: Vec::new(),
-        }
-    }
-
     pub fn mesh_terrain(mut self, terrain: &Terrain) -> Self {
         for x in 0..terrain.size.x {
             for z in 0..terrain.size.z {
                 for y in 0..terrain.size.y {
-                    let pos = UVec3 { x, y: y as u32, z };
+                    let pos = UVec3 { x, y, z };
                     let voxel_mesh = terrain.voxel_mesh_at_pos(pos);
                     if let Some(voxel_mesh) = voxel_mesh {
                         if voxel_mesh.voxel.shape.volume == Volume::ZeroSixth {
                             continue;
                         }
-                        voxel_mesh.mesh(&mut self, &terrain);
+                        voxel_mesh.mesh(&mut self, terrain);
                     }
                 }
             }

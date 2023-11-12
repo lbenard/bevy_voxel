@@ -66,23 +66,25 @@ impl TerrainGenerator for NoiseTerrainGenerator {
                     &1.0,
                     &((self.origin.y + y as i32 + 1) as f32 / WORLD_HEIGHT as f32),
                 );
-                let _0 = self.values[self.values_shape.linearize([x, y, z]) as usize];
-                let _1 = self.values[self.values_shape.linearize([x + 1, y, z]) as usize];
-                let _2 = self.values[self.values_shape.linearize([x, y, z + 1]) as usize];
-                let _3 = self.values[self.values_shape.linearize([x + 1, y, z + 1]) as usize];
-                let _4 = self.values[self.values_shape.linearize([x, y + 1, z]) as usize];
-                let _5 = self.values[self.values_shape.linearize([x + 1, y + 1, z]) as usize];
-                let _6 = self.values[self.values_shape.linearize([x, y + 1, z + 1]) as usize];
-                let _7 = self.values[self.values_shape.linearize([x + 1, y + 1, z + 1]) as usize];
+                let idx_0 = self.values[self.values_shape.linearize([x, y, z]) as usize];
+                let idx_1 = self.values[self.values_shape.linearize([x + 1, y, z]) as usize];
+                let idx_2 = self.values[self.values_shape.linearize([x, y, z + 1]) as usize];
+                let idx_3 = self.values[self.values_shape.linearize([x + 1, y, z + 1]) as usize];
+                let idx_4 = self.values[self.values_shape.linearize([x, y + 1, z]) as usize];
+                let idx_5 = self.values[self.values_shape.linearize([x + 1, y + 1, z]) as usize];
+                let idx_6 = self.values[self.values_shape.linearize([x, y + 1, z + 1]) as usize];
+                let idx_7 =
+                    self.values[self.values_shape.linearize([x + 1, y + 1, z + 1]) as usize];
+
                 let index = Self::voxel_idx(&[
-                    _0 > lower_height_treshold,
-                    _1 > lower_height_treshold,
-                    _2 > lower_height_treshold,
-                    _3 > lower_height_treshold,
-                    _4 > higher_height_treshold,
-                    _5 > higher_height_treshold,
-                    _6 > higher_height_treshold,
-                    _7 > higher_height_treshold,
+                    idx_0 > lower_height_treshold,
+                    idx_1 > lower_height_treshold,
+                    idx_2 > lower_height_treshold,
+                    idx_3 > lower_height_treshold,
+                    idx_4 > higher_height_treshold,
+                    idx_5 > higher_height_treshold,
+                    idx_6 > higher_height_treshold,
+                    idx_7 > higher_height_treshold,
                 ]);
 
                 // Fill invalid voxels with empty or full voxels depending on the index

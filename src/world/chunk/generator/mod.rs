@@ -16,7 +16,7 @@ pub trait TerrainGenerator {
 
     fn voxel_idx(bits: &[bool; 8]) -> VoxelIndex {
         let mut idx = 0;
-        idx |= (bits[0] as u8) << 0;
+        idx |= bits[0] as u8;
         idx |= (bits[1] as u8) << 1;
         idx |= (bits[2] as u8) << 2;
         idx |= (bits[3] as u8) << 3;

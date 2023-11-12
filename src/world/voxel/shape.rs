@@ -204,8 +204,8 @@ pub static VERTEX_LIST: [UVec3; 8] = [
     UVec3::new(1, 1, 1),
 ];
 
-pub static ZERO_SIXTH_VERTEX_LIST: LazyLock<Vec<UVec3>> = LazyLock::new(|| vec![]);
-static ZERO_SIXTH_INTERIOR_VERTICES: LazyLock<Vec<[UVec3; 3]>> = LazyLock::new(|| vec![]);
+pub static ZERO_SIXTH_VERTEX_LIST: Vec<UVec3> = vec![];
+static ZERO_SIXTH_INTERIOR_VERTICES: Vec<[UVec3; 3]> = vec![];
 
 pub static ONE_SIXTH_VERTEX_LIST: LazyLock<Vec<UVec3>> = LazyLock::new(|| {
     vec![
@@ -522,8 +522,7 @@ pub static SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP: LazyLock<[u32; 256]> = LazyLock::
                     _ => 0,
                 };
 
-                let result: u32 = 0
-                    | bottom_face_flag
+                let result: u32 = bottom_face_flag
                     | top_face_flag << 4
                     | west_face_flag << 8
                     | south_face_flag << 12

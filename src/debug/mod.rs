@@ -113,7 +113,7 @@ impl DebugPlugin {
         commands
             .spawn(PbrBundle {
                 mesh: meshes.add(icosphere.try_into().unwrap()),
-                material: materials.add(material.clone()),
+                material: materials.add(material),
                 transform: Transform::from_xyz(pos.x as f32, pos.y as f32, pos.z as f32),
                 ..default()
             })

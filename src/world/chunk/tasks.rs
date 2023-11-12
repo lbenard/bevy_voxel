@@ -77,8 +77,8 @@ pub fn new_mesh_chunk_task(
         );
 
         let meshing_timer = Instant::now();
-        let mesh = ChunkMesh::new()
-            .mesh_terrain(&chunk.read().terrain.as_ref().unwrap())
+        let mesh = ChunkMesh::default()
+            .mesh_terrain(chunk.read().terrain.as_ref().unwrap())
             .mesh();
         let meshing_duration = meshing_timer.elapsed();
         MeshChunkResult {

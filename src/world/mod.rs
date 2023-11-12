@@ -27,9 +27,9 @@ pub struct World {
     pub chunks: HashMap<chunk::Coordinates, Arc<RwLock<Chunk>>>,
 }
 
-impl Into<Arc<RwLock<Chunk>>> for Chunk {
-    fn into(self) -> Arc<RwLock<Chunk>> {
-        Arc::new(RwLock::new(self))
+impl From<Chunk> for Arc<RwLock<Chunk>> {
+    fn from(val: Chunk) -> Self {
+        Arc::new(RwLock::new(val))
     }
 }
 

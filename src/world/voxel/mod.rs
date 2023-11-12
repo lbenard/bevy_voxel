@@ -19,11 +19,11 @@ pub struct Voxel {
     pub material: Material,
 }
 
-impl Into<VoxelDescriptor> for Voxel {
-    fn into(self) -> VoxelDescriptor {
+impl From<Voxel> for VoxelDescriptor {
+    fn from(val: Voxel) -> Self {
         VoxelDescriptor {
-            shape: self.shape,
-            material: self.material,
+            shape: val.shape,
+            material: val.material,
         }
     }
 }

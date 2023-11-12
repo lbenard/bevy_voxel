@@ -53,25 +53,25 @@ impl TerrainGenerator for HeightNoiseTerrainGenerator {
             .map(|i| {
                 let [x, y, z] = shape.delinearize(i);
 
-                let _0 = self.noise_map[self.noise_map_shape.linearize([x, z]) as usize];
-                let _1 = self.noise_map[self.noise_map_shape.linearize([x + 1, z]) as usize];
-                let _2 = self.noise_map[self.noise_map_shape.linearize([x, z + 1]) as usize];
-                let _3 = self.noise_map[self.noise_map_shape.linearize([x + 1, z + 1]) as usize];
+                let idx_0 = self.noise_map[self.noise_map_shape.linearize([x, z]) as usize];
+                let idx_1 = self.noise_map[self.noise_map_shape.linearize([x + 1, z]) as usize];
+                let idx_2 = self.noise_map[self.noise_map_shape.linearize([x, z + 1]) as usize];
+                let idx_3 = self.noise_map[self.noise_map_shape.linearize([x + 1, z + 1]) as usize];
 
-                let _0 = ((_0 + 1.0) / 2.0 * WORLD_HEIGHT as f32) as u32;
-                let _1 = ((_1 + 1.0) / 2.0 * WORLD_HEIGHT as f32) as u32;
-                let _2 = ((_2 + 1.0) / 2.0 * WORLD_HEIGHT as f32) as u32;
-                let _3 = ((_3 + 1.0) / 2.0 * WORLD_HEIGHT as f32) as u32;
+                let idx_0 = ((idx_0 + 1.0) / 2.0 * WORLD_HEIGHT as f32) as u32;
+                let idx_1 = ((idx_1 + 1.0) / 2.0 * WORLD_HEIGHT as f32) as u32;
+                let idx_2 = ((idx_2 + 1.0) / 2.0 * WORLD_HEIGHT as f32) as u32;
+                let idx_3 = ((idx_3 + 1.0) / 2.0 * WORLD_HEIGHT as f32) as u32;
 
                 let index = Self::voxel_idx(&[
-                    self.origin.y as u32 + y < _0,
-                    self.origin.y as u32 + y < _1,
-                    self.origin.y as u32 + y < _2,
-                    self.origin.y as u32 + y < _3,
-                    self.origin.y as u32 + y + 1 < _0,
-                    self.origin.y as u32 + y + 1 < _1,
-                    self.origin.y as u32 + y + 1 < _2,
-                    self.origin.y as u32 + y + 1 < _3,
+                    self.origin.y as u32 + y < idx_0,
+                    self.origin.y as u32 + y < idx_1,
+                    self.origin.y as u32 + y < idx_2,
+                    self.origin.y as u32 + y < idx_3,
+                    self.origin.y as u32 + y + 1 < idx_0,
+                    self.origin.y as u32 + y + 1 < idx_1,
+                    self.origin.y as u32 + y + 1 < idx_2,
+                    self.origin.y as u32 + y + 1 < idx_3,
                 ]);
 
                 // Fill invalid voxels with empty or full voxels depending on the index

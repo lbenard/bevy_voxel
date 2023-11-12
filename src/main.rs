@@ -47,7 +47,6 @@ fn main() {
                     },
                     ..default()
                 },
-                ..default()
             }),
     )
     .add_plugins((

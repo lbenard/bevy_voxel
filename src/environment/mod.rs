@@ -112,7 +112,7 @@ impl EnvironmentPlugin {
         timer.0.tick(time.delta());
 
         if timer.0.finished() {
-            let t = time.elapsed_seconds_wrapped() as f32 / 100.0;
+            let t = time.elapsed_seconds_wrapped() / 100.0;
             daylight.0 = (t.sin() + 1.0) / 2.0;
         }
     }
@@ -150,7 +150,7 @@ impl EnvironmentPlugin {
         time: Res<Time>,
     ) {
         if timer.0.finished() {
-            let t = time.elapsed_seconds_wrapped() as f32 / 100.0;
+            let t = time.elapsed_seconds_wrapped() / 100.0;
 
             if let Some((mut light_trans, mut directional)) = query.single_mut().into() {
                 light_trans.rotation = Quat::from_rotation_x(-t.sin().atan2(t.cos()));

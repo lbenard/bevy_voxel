@@ -28,7 +28,7 @@ impl Materializator for DefaultMaterializator {
 
                 // reverse iterator to iterate from the surface first
                 for y in (0..CHUNK_SIZE.y).rev() {
-                    let idx = chunk.shape.linearize([x as u32, y as u32, z as u32]);
+                    let idx = chunk.shape.linearize([x, y, z]);
                     let shape = chunk.data[idx as usize];
                     let shape_descriptor: ShapeDescriptor = shape.into();
                     depth = match shape.volume {

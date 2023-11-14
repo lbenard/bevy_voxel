@@ -39,6 +39,7 @@ impl World {
             coordinates,
             Chunk {
                 entity,
+                state: chunk::State::Spawned,
                 coordinates,
                 absolute_position: coordinates.0 * CHUNK_SIZE.as_ivec3(),
                 grid: None,
@@ -48,30 +49,27 @@ impl World {
         );
     }
 
-    #[allow(dead_code)]
     pub fn remove_chunk(&mut self, coordinates: chunk::Coordinates) {
         self.chunks.remove(&coordinates);
     }
 
-    #[allow(dead_code)]
-    pub fn get_chunk(&self, coordinates: chunk::Coordinates) -> Option<&Arc<RwLock<Chunk>>> {
-        self.chunks.get(&coordinates)
+    pub fn get_chunk(&self, coordinates: chunk::Coordinates) -> Option<Arc<RwLock<Chunk>>> {
+        self.chunks.get(&coordinates).map(|chunk| chunk.clone())
     }
 
-    #[allow(dead_code)]
-    pub fn get_chunk_mut(
-        &mut self,
-        coordinates: chunk::Coordinates,
-    ) -> Option<&mut Arc<RwLock<Chunk>>> {
-        self.chunks.get_mut(&coordinates)
+    pub fn get_chunk_by_entity(&self, entity: Entity) -> Option<Arc<RwLock<Chunk>>> {
+        self.chunks
+            .values()
+            .find(|chunk| chunk.read().entity == entity)
+            .map(|chunk| chunk.clone())
     }
 
     #[allow(dead_code)]
     pub fn get_voxel(self, position: IVec3) -> Option<Voxel> {
         let chunk_coordinates = chunk::Coordinates(position / CHUNK_SIZE.as_ivec3());
-        let chunk = self.get_chunk(chunk_coordinates)?.read();
+        let chunk = self.get_chunk(chunk_coordinates)?;
         let relative_position = (position - chunk_coordinates.0 * CHUNK_SIZE.as_ivec3()).as_uvec3();
-        let voxel = chunk.get_voxel(relative_position)?;
+        let voxel = chunk.read().get_voxel(relative_position)?;
         Some(voxel)
     }
 }

@@ -37,6 +37,7 @@ pub struct MeshingDuration(Duration);
 
 pub struct Chunk {
     pub entity: Entity,
+    pub state: State,
     pub coordinates: Coordinates,
     pub absolute_position: IVec3,
     pub grid: Option<Grid>,
@@ -60,38 +61,33 @@ impl Chunk {
 
     fn handle_generation_tasks(
         mut commands: Commands,
-        mut generation_tasks: Query<(Entity, &Coordinates, &mut State, &mut tasks::GenerateChunk)>,
-        mut world: ResMut<World>,
+        mut generation_tasks: Query<(Entity, &mut tasks::GenerateChunk)>,
+        world: Res<World>,
         #[cfg(debug_assertions)] mut generation_average: ResMut<Average<GenerationDuration>>,
     ) {
-        for (entity, coordinates, mut state, mut generation_task) in
-            &mut generation_tasks.iter_mut()
-        {
+        for (entity, mut generation_task) in &mut generation_tasks.iter_mut() {
             if let Some(generation_task) =
                 future::block_on(future::poll_once(&mut generation_task.0))
             {
-                let chunk = world.get_chunk_mut(*coordinates).unwrap();
-                let mut entity = commands.entity(entity);
+                let chunk = world.get_chunk_by_entity(entity).unwrap();
 
                 #[cfg(debug_assertions)]
                 generation_average.add(generation_task.generation_duration);
 
-                *state = State::Generated;
+                chunk.write().state = State::Generated;
                 chunk.write().terrain = Some(generation_task.terrain);
-                entity.remove::<tasks::GenerateChunk>();
 
-                let mesh_task = tasks::new_mesh_chunk_task(generation_task.chunk, *coordinates);
-                entity.insert(tasks::MeshChunk(mesh_task));
+                commands.entity(entity).remove::<tasks::GenerateChunk>();
             }
         }
     }
 
     fn handle_meshing_tasks(
         mut commands: Commands,
-        mut meshing_tasks: Query<(Entity, &mut State, &mut tasks::MeshChunk)>,
+        mut meshing_tasks: Query<(Entity, &mut tasks::MeshChunk)>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<TerrainMaterial>>,
-        // mut world: ResMut<World>,
+        world: Res<World>,
         #[cfg(debug_assertions)] mut meshing_average: ResMut<Average<MeshingDuration>>,
     ) {
         let material = TerrainMaterial {
@@ -104,14 +100,15 @@ impl Chunk {
             extension: StandardMaterialExtension {},
         };
 
-        for (entity, mut state, mut meshing_task) in &mut meshing_tasks.iter_mut() {
+        for (entity, mut meshing_task) in &mut meshing_tasks.iter_mut() {
             if let Some(meshing_task) = future::block_on(future::poll_once(&mut meshing_task.0)) {
+                let chunk = world.get_chunk_by_entity(entity).unwrap();
                 let mut entity = commands.entity(entity);
 
                 #[cfg(debug_assertions)]
                 meshing_average.add(meshing_task.meshing_duration);
 
-                *state = State::Meshed;
+                chunk.write().state = State::Meshed;
                 entity.insert((MaterialMeshBundle {
                     mesh: meshes.add(meshing_task.mesh),
                     material: materials.add(material.clone()),
@@ -137,7 +134,7 @@ pub struct Coordinates(pub IVec3);
 /// Describe the chunk loading state.
 /// A chunk is `Loading` at creation, `Loaded` when generated but not displayed, and `Rendered` when generated and displayed.
 /// Any `Unloaded` chunk will get deleted from memory.
-#[derive(Component)]
+#[derive(Component, PartialEq, Eq)]
 pub enum State {
     Spawned,
     Generated,

@@ -11,7 +11,7 @@ use crate::debug::stats::Average;
 
 use crate::world::{chunk, Chunk, World};
 
-use super::CHUNK_SIZE;
+use super::{tasks, State, CHUNK_SIZE};
 
 pub struct ChunkLoaderPlugin {
     default_load_distance: u32,
@@ -26,6 +26,7 @@ impl Plugin for ChunkLoaderPlugin {
                 (
                     Self::load_chunks,
                     Chunk::handle_generation_tasks,
+                    Self::mesh_chunks,
                     Chunk::handle_meshing_tasks,
                     Self::unload_chunks,
                 )
@@ -80,14 +81,35 @@ impl ChunkLoaderPlugin {
         });
 
         for chunk_coordinates in coordinates {
-            if world.get_chunk_mut(chunk_coordinates).is_none() {
-                let mut chunk_entity =
-                    commands.spawn((chunk::Marker, chunk_coordinates, chunk::State::Spawned));
+            if world.get_chunk(chunk_coordinates).is_none() {
+                let mut chunk_entity = commands.spawn((chunk::Marker,));
                 world.spawn_chunk(chunk_entity.id(), chunk_coordinates);
                 let chunk = world.get_chunk(chunk_coordinates).unwrap().clone();
                 let task = chunk::tasks::new_generate_chunk_task(chunk, chunk_coordinates);
                 chunk_entity.insert(chunk::tasks::GenerateChunk(task));
             }
+        }
+    }
+
+    fn mesh_chunks(
+        mut commands: Commands,
+        queued_chunks: Query<(Entity, With<tasks::MeshChunk>)>,
+        world: Res<World>,
+    ) {
+        let queued_chunks_entities = queued_chunks.iter().map(|c| c.0).collect::<Vec<Entity>>();
+        let generated_chunks = world
+            .chunks
+            .values()
+            .filter(|chunk| chunk.read().state == State::Generated);
+        let chunks_to_mesh = generated_chunks
+            .filter(|chunk| !queued_chunks_entities.contains(&chunk.read().entity))
+            .collect::<Vec<&Arc<RwLock<Chunk>>>>();
+
+        for chunk in chunks_to_mesh {
+            let task = tasks::new_mesh_chunk_task(chunk.clone(), chunk.read().coordinates);
+            commands
+                .entity(chunk.read().entity)
+                .insert(tasks::MeshChunk(task));
         }
     }
 

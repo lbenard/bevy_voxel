@@ -22,12 +22,14 @@ impl Plugin for WorldPlugin {
     }
 }
 
+pub type WorldChunk = Arc<RwLock<Chunk>>;
+
 #[derive(Resource, Default)]
 pub struct World {
-    pub chunks: HashMap<chunk::Coordinates, Arc<RwLock<Chunk>>>,
+    pub chunks: HashMap<chunk::Coordinates, WorldChunk>,
 }
 
-impl From<Chunk> for Arc<RwLock<Chunk>> {
+impl From<Chunk> for WorldChunk {
     fn from(val: Chunk) -> Self {
         Arc::new(RwLock::new(val))
     }
@@ -53,20 +55,23 @@ impl World {
         self.chunks.remove(&coordinates);
     }
 
-    pub fn get_chunk(&self, coordinates: chunk::Coordinates) -> Option<Arc<RwLock<Chunk>>> {
+    pub fn get_chunk(&self, coordinates: chunk::Coordinates) -> Option<WorldChunk> {
         self.chunks.get(&coordinates).map(|chunk| chunk.clone())
     }
 
-    pub fn get_chunk_by_entity(&self, entity: Entity) -> Option<Arc<RwLock<Chunk>>> {
+    pub fn get_chunk_by_entity(&self, entity: Entity) -> Option<WorldChunk> {
         self.chunks
             .values()
             .find(|chunk| chunk.read().entity == entity)
             .map(|chunk| chunk.clone())
     }
 
-    #[allow(dead_code)]
-    pub fn get_voxel(self, position: IVec3) -> Option<Voxel> {
-        let chunk_coordinates = chunk::Coordinates(position / CHUNK_SIZE.as_ivec3());
+    pub fn get_voxel(&self, position: IVec3) -> Option<Voxel> {
+        let chunk_coordinates = chunk::Coordinates(
+            (position.as_vec3() / CHUNK_SIZE.as_vec3())
+                .floor()
+                .as_ivec3(),
+        );
         let chunk = self.get_chunk(chunk_coordinates)?;
         let relative_position = (position - chunk_coordinates.0 * CHUNK_SIZE.as_ivec3()).as_uvec3();
         let voxel = chunk.read().get_voxel(relative_position)?;

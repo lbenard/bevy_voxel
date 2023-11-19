@@ -1,23 +1,22 @@
-use std::{sync::Arc, time::Instant};
+use std::time::Instant;
 
 use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
 };
-use parking_lot::RwLock;
 
 use super::{
     generator::{
         default_materializator::DefaultMaterializator,
         noise_terrain_generator::NoiseTerrainGenerator, Materializator, TerrainGenerator,
     },
-    mesh::ChunkMesh,
+    mesh::{AdjacentChunks, ChunkMesh},
     GenerationDuration, MeshingDuration, CHUNK_SIZE,
 };
-use crate::world::chunk;
+use crate::world::{chunk, World, WorldChunk};
 
 pub struct GenerateChunkResult {
-    pub chunk: Arc<RwLock<chunk::Chunk>>,
+    pub chunk: WorldChunk,
     pub terrain: chunk::Terrain,
     pub generation_duration: GenerationDuration,
 }
@@ -35,7 +34,7 @@ pub struct MeshChunkResult {
 pub struct MeshChunk(pub Task<MeshChunkResult>);
 
 pub fn new_generate_chunk_task(
-    chunk: Arc<RwLock<chunk::Chunk>>,
+    chunk: WorldChunk,
     chunk_coordinates: chunk::Coordinates,
 ) -> Task<GenerateChunkResult> {
     let thread_pool = AsyncComputeTaskPool::get();
@@ -64,7 +63,8 @@ pub fn new_generate_chunk_task(
 }
 
 pub fn new_mesh_chunk_task(
-    chunk: Arc<RwLock<chunk::Chunk>>,
+    chunk: WorldChunk,
+    adjacent_chunks: AdjacentChunks,
     chunk_coordinates: chunk::Coordinates,
 ) -> Task<MeshChunkResult> {
     let thread_pool = AsyncComputeTaskPool::get();
@@ -77,8 +77,9 @@ pub fn new_mesh_chunk_task(
         );
 
         let meshing_timer = Instant::now();
+        let world = World::from_adjacent_chunks(chunk.clone(), adjacent_chunks);
         let mesh = ChunkMesh::default()
-            .mesh_terrain(chunk.read().terrain.as_ref().unwrap())
+            .mesh_chunk(chunk.clone(), &world)
             .mesh();
         let meshing_duration = meshing_timer.elapsed();
         MeshChunkResult {

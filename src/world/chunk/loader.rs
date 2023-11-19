@@ -1,15 +1,12 @@
-use std::sync::Arc;
-
 use bevy::prelude::*;
 use bevy_spectator::SpectatorSystemSet;
-use parking_lot::RwLock;
 
 #[cfg(debug_assertions)]
 use super::{GenerationDuration, MeshingDuration};
 #[cfg(debug_assertions)]
 use crate::debug::stats::Average;
 
-use crate::world::{chunk, Chunk, World};
+use crate::world::{chunk, Chunk, World, WorldChunk};
 
 use super::{tasks, State, CHUNK_SIZE};
 
@@ -103,13 +100,20 @@ impl ChunkLoaderPlugin {
             .filter(|chunk| chunk.read().state == State::Generated);
         let chunks_to_mesh = generated_chunks
             .filter(|chunk| !queued_chunks_entities.contains(&chunk.read().entity))
-            .collect::<Vec<&Arc<RwLock<Chunk>>>>();
+            .collect::<Vec<&WorldChunk>>();
 
         for chunk in chunks_to_mesh {
-            let task = tasks::new_mesh_chunk_task(chunk.clone(), chunk.read().coordinates);
-            commands
-                .entity(chunk.read().entity)
-                .insert(tasks::MeshChunk(task));
+            let adjacent_chunks = world.get_adjacent_chunks(chunk.clone());
+            if let Ok(adjacent_chunks) = adjacent_chunks {
+                let task = tasks::new_mesh_chunk_task(
+                    chunk.clone(),
+                    adjacent_chunks,
+                    chunk.read().coordinates,
+                );
+                commands
+                    .entity(chunk.read().entity)
+                    .insert(tasks::MeshChunk(task));
+            }
         }
     }
 
@@ -127,7 +131,7 @@ impl ChunkLoaderPlugin {
             .chunks
             .extract_if(|k, _v| !coordinates.contains(k))
             .map(|(_k, v)| v)
-            .collect::<Vec<Arc<RwLock<Chunk>>>>();
+            .collect::<Vec<WorldChunk>>();
         for chunk in out_of_range {
             let chunk = chunk.read();
             commands.entity(chunk.entity).despawn();

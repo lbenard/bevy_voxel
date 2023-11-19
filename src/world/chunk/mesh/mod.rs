@@ -1,7 +1,10 @@
 use crate::world::voxel::material::Material;
 use crate::world::voxel::shape::Volume;
+use crate::world::{World, WorldChunk};
 
+use bevy::math::IVec3;
 use bevy::prelude::Mesh;
+use bevy::utils::HashMap;
 use bevy::{
     math::UVec3,
     prelude::Vec3,
@@ -10,7 +13,7 @@ use bevy::{
 use rand::Rng;
 
 use super::material::ATTRIBUTE_VOXEL_ID;
-use super::Terrain;
+use super::Coordinates;
 
 pub mod voxel;
 
@@ -23,8 +26,72 @@ pub struct ChunkMesh {
     indices: Vec<u32>,
 }
 
+pub struct AdjacentChunks {
+    north: WorldChunk,
+    east: WorldChunk,
+    south: WorldChunk,
+    west: WorldChunk,
+}
+
+impl World {
+    pub fn from_adjacent_chunks(chunk: WorldChunk, adjacent_chunks: AdjacentChunks) -> Self {
+        Self {
+            chunks: HashMap::from([
+                (chunk.read().coordinates, chunk.clone()),
+                (
+                    adjacent_chunks.north.read().coordinates,
+                    adjacent_chunks.north.clone(),
+                ),
+                (
+                    adjacent_chunks.east.read().coordinates,
+                    adjacent_chunks.east.clone(),
+                ),
+                (
+                    adjacent_chunks.south.read().coordinates,
+                    adjacent_chunks.south.clone(),
+                ),
+                (
+                    adjacent_chunks.west.read().coordinates,
+                    adjacent_chunks.west.clone(),
+                ),
+            ]),
+        }
+    }
+
+    pub fn get_adjacent_chunks(&self, chunk: WorldChunk) -> Result<AdjacentChunks, ()> {
+        let base_coordinates = chunk.read().coordinates;
+
+        let north = self.get_chunk(base_coordinates + Coordinates(IVec3::new(0, 0, 1)));
+        let east = self.get_chunk(base_coordinates + Coordinates(IVec3::new(1, 0, 0)));
+        let south = self.get_chunk(base_coordinates + Coordinates(IVec3::new(0, 0, -1)));
+        let west = self.get_chunk(base_coordinates + Coordinates(IVec3::new(-1, 0, 0)));
+
+        if let (Some(north), Some(east), Some(south), Some(west)) = (north, east, south, west) {
+            if north.read().terrain.is_some()
+                && east.read().terrain.is_some()
+                && south.read().terrain.is_some()
+                && west.read().terrain.is_some()
+            {
+                Ok(AdjacentChunks {
+                    north,
+                    east,
+                    south,
+                    west,
+                })
+            } else {
+                Err(())
+            }
+        } else {
+            Err(())
+        }
+    }
+}
+
 impl ChunkMesh {
-    pub fn mesh_terrain(mut self, terrain: &Terrain) -> Self {
+    pub fn mesh_chunk(mut self, chunk: WorldChunk, world: &World) -> Self {
+        let chunk_lock = chunk.read();
+        let terrain = &chunk_lock.terrain.as_ref().unwrap();
+
         for x in 0..terrain.size.x {
             for z in 0..terrain.size.z {
                 for y in 0..terrain.size.y {
@@ -34,7 +101,7 @@ impl ChunkMesh {
                         if voxel_mesh.voxel.shape.volume == Volume::ZeroSixth {
                             continue;
                         }
-                        voxel_mesh.mesh(&mut self, terrain);
+                        voxel_mesh.mesh(&mut self, chunk.clone(), world);
                     }
                 }
             }

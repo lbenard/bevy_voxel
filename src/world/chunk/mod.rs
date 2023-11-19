@@ -128,7 +128,7 @@ impl Chunk {
 #[derive(Component)]
 pub struct Marker;
 
-#[derive(Component, PartialEq, Clone, Copy, Eq, Hash)]
+#[derive(Component, PartialEq, Clone, Copy, Eq, Hash, Add)]
 pub struct Coordinates(pub IVec3);
 
 /// Describe the chunk loading state.

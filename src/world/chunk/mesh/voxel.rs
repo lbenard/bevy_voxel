@@ -10,6 +10,7 @@ use crate::world::{
         },
         VoxelDescriptor,
     },
+    World, WorldChunk,
 };
 
 use super::ChunkMesh;
@@ -31,7 +32,7 @@ impl VoxelMesh {
         Self { voxel, position }
     }
 
-    pub fn mesh(&self, chunk_mesh: &mut ChunkMesh, terrain: &Terrain) {
+    pub fn mesh(&self, chunk_mesh: &mut ChunkMesh, chunk: WorldChunk, world: &World) {
         let shape_descriptor: ShapeDescriptor = self.voxel.shape.into();
         let tris = &SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP[shape_descriptor.0 as usize];
         chunk_mesh.add_vertices_at_pos(self.position, tris, &self.voxel.material);
@@ -41,10 +42,12 @@ impl VoxelMesh {
             if side_descriptor.descriptor == 0 {
                 continue;
             }
-            let adjacent_voxel = terrain.voxel_at_pos(side.adjacent_position(self.position));
+            let adjacent_voxel = world
+                .get_voxel(chunk.read().absolute_position + side.adjacent_position(self.position));
+
             let adjacent_shape = adjacent_voxel
                 .map(|voxel| voxel.shape)
-                .unwrap_or(Shape::FULL);
+                .unwrap_or(Shape::EMPTY);
             let adjacent_side_descriptor =
                 SideDescriptor::from_shape_descriptor(&adjacent_shape.into(), side.opposite());
 

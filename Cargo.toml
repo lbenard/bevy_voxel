@@ -30,3 +30,5 @@ derive_more = { git = "https://github.com/JelteF/derive_more.git", branch = "mas
 
 [features]
 atmosphere = ["dep:bevy_atmosphere"]
+ssao = []
+taa = []

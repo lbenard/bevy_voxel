@@ -1,11 +1,8 @@
 # bevy_voxel
 A voxel game inspired with a block system inspired by Stellar Overload ; 6 block shapes (each of them a fraction of a whole cube) that can be rotated in 24 directions
 
-### Atmosphere & fog
-![image](https://github.com/lbenard/bevy_voxel/assets/41705066/cf807172-e354-46b3-98a4-5515dc7317e3)
-
-### Materials (shader currently broken)
-![image](https://github.com/lbenard/bevy_voxel/assets/41705066/fa505055-1a2b-48d5-bc75-a798f3d90251)
+### Atmosphere, fog & materials
+![image](https://github.com/lbenard/bevy_voxel/assets/41705066/9188b679-dc83-40c2-949c-0b75355e981f)
 
 ## WIP:
 - Clean the repo (lots of unused bits or waiting to be refactored files)

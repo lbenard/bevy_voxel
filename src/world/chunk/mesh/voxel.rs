@@ -8,7 +8,7 @@ use crate::world::{
             Shape, ShapeDescriptor, SHAPE_DESCRIPTOR_TO_FACE_FLAGS_MAP,
             SHAPE_DESCRIPTOR_TO_INTERIOR_VERTICES_MAP,
         },
-        VoxelDescriptor,
+        Side, VoxelDescriptor,
     },
     World, WorldChunk,
 };
@@ -55,65 +55,6 @@ impl VoxelMesh {
                 SideDescriptor::from_adjacent_sides(&side_descriptor, &adjacent_side_descriptor);
 
             result_side_descriptor.mesh_side(chunk_mesh, self.position, &self.voxel.material);
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum Side {
-    North,
-    South,
-    Top,
-    Bottom,
-    West,
-    East,
-}
-
-impl Side {
-    fn opposite(&self) -> Side {
-        match self {
-            Side::North => Side::South,
-            Side::South => Side::North,
-            Side::Top => Side::Bottom,
-            Side::Bottom => Side::Top,
-            Side::West => Side::East,
-            Side::East => Side::West,
-        }
-    }
-
-    fn adjacent_position(&self, pos: UVec3) -> IVec3 {
-        let pos = pos.as_ivec3();
-        match self {
-            Side::North => IVec3 {
-                x: pos.x,
-                y: pos.y,
-                z: pos.z + 1,
-            },
-            Side::South => IVec3 {
-                x: pos.x,
-                y: pos.y,
-                z: pos.z - 1,
-            },
-            Side::Top => IVec3 {
-                x: pos.x,
-                y: pos.y + 1,
-                z: pos.z,
-            },
-            Side::Bottom => IVec3 {
-                x: pos.x,
-                y: pos.y - 1,
-                z: pos.z,
-            },
-            Side::West => IVec3 {
-                x: pos.x + 1,
-                y: pos.y,
-                z: pos.z,
-            },
-            Side::East => IVec3 {
-                x: pos.x - 1,
-                y: pos.y,
-                z: pos.z,
-            },
         }
     }
 }

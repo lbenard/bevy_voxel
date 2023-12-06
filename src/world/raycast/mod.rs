@@ -1,46 +1,53 @@
-use bevy::prelude::Vec3;
+use bevy::math::{IVec3, Vec3};
 
-use super::{voxel::VoxelDescriptor, World};
+use crate::world::voxel::{shape::Volume, Side};
 
-#[derive(Debug)]
-pub struct RaycastResult {
-    pub position: Vec3,
-    // pub face: Vec3,
-    pub voxel: VoxelDescriptor,
-}
+use super::World;
 
-#[allow(dead_code)]
-pub fn raycast(origin: Vec3, direction: Vec3, radius: f32, world: &World) -> Option<RaycastResult> {
-    let sign = direction.signum();
-    let reciprocal = 1.0 / direction.abs();
+pub fn fast_voxel_traversal(
+    world: &World,
+    origin: Vec3,
+    max_radius: f32,
+    direction: Vec3,
+) -> Option<(IVec3, Side)> {
+    let step = 0.01;
 
-    let mut position = origin.floor();
-    let mut steps = (sign + 1.0) / 2.0 - (origin - position) / direction;
+    let mut current_pos = origin;
+    let mut distance_traveled = 0.0;
 
-    loop {
-        let axis = argmin(steps);
-        position[axis] += sign[axis];
-        if origin.distance(position) > radius {
-            break;
+    while distance_traveled <= max_radius {
+        let voxel_pos = IVec3::new(
+            current_pos.x.floor() as i32,
+            current_pos.y.floor() as i32,
+            current_pos.z.floor() as i32,
+        );
+
+        if let Some(voxel) = world.get_voxel(voxel_pos) {
+            if voxel.shape.volume != Volume::ZeroSixth {
+                let face = if direction.x > 0.0 {
+                    Side::West
+                } else if direction.x < 0.0 {
+                    Side::East
+                } else if direction.y > 0.0 {
+                    Side::Bottom
+                } else if direction.y < 0.0 {
+                    Side::Top
+                } else if direction.z > 0.0 {
+                    Side::South
+                } else {
+                    Side::North
+                };
+
+                return Some((voxel_pos, face));
+            }
         }
-        if let Some(voxel) = world.get_voxel(position.as_ivec3()) {
-            // let face = Vec3::from_element(axis as f32) * sign[axis];
-            return Some(RaycastResult {
-                position: origin + direction * steps[axis],
-                // face,
-                voxel: voxel.into(),
-            });
-        }
-        steps[axis] += reciprocal[axis];
+
+        current_pos.x += direction.x * step;
+        current_pos.y += direction.y * step;
+        current_pos.z += direction.z * step;
+
+        distance_traveled += step;
     }
-    None
-}
 
-fn argmin(v: Vec3) -> usize {
-    v.to_array()
-        .iter()
-        .enumerate()
-        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-        .unwrap()
-        .0
+    None
 }

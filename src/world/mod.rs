@@ -11,7 +11,7 @@ use self::{
 };
 
 pub mod chunk;
-// pub mod raycast;
+pub mod raycast;
 pub mod voxel;
 
 pub struct WorldPlugin;
@@ -56,14 +56,14 @@ impl World {
     }
 
     pub fn get_chunk(&self, coordinates: chunk::Coordinates) -> Option<WorldChunk> {
-        self.chunks.get(&coordinates).map(|chunk| chunk.clone())
+        self.chunks.get(&coordinates).cloned()
     }
 
     pub fn get_chunk_by_entity(&self, entity: Entity) -> Option<WorldChunk> {
         self.chunks
             .values()
             .find(|chunk| chunk.read().entity == entity)
-            .map(|chunk| chunk.clone())
+            .cloned()
     }
 
     pub fn get_voxel(&self, position: IVec3) -> Option<Voxel> {

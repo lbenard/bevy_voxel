@@ -2,18 +2,12 @@
 use bevy::core_pipeline::experimental::taa::TemporalAntiAliasBundle;
 #[cfg(feature = "ssao")]
 use bevy::pbr::{ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings};
-use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
-    prelude::{
-        default, Camera, Camera3d, Camera3dBundle, Color, Commands, FogFalloff, FogSettings,
-        PerspectiveProjection, Plugin, Projection, Startup,
-    },
-};
+use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
 #[cfg(feature = "atmosphere")]
 use bevy_atmosphere::prelude::AtmosphereCamera;
 use bevy_spectator::{Spectator, SpectatorPlugin, SpectatorSettings};
 
-use crate::world::chunk::loader::ChunkLoaderSource;
+use crate::world::{chunk::loader::ChunkLoaderSource, raycast::fast_voxel_traversal, World};
 
 pub struct PlayerPlugin;
 
@@ -21,6 +15,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugins(SpectatorPlugin)
             .add_systems(Startup, Self::setup_player)
+            .add_systems(Update, Self::raycast)
             .insert_resource(SpectatorSettings {
                 base_speed: 50.0,
                 alt_speed: 2000.0,
@@ -76,18 +71,17 @@ impl PlayerPlugin {
         commands.spawn(TemporalAntiAliasBundle::default());
     }
 
-    // fn raycast(camera: Query<(&Camera, &Transform)>, world: Res<World>) {
-    //     for (camera, transform) in &camera {
-    //         // rotation to direction vector
-    //         let direction = Vec3::new(
-    //             -transform.rotation.x.sin() * transform.rotation.y.cos(),
-    //             transform.rotation.x.cos(),
-    //             -transform.rotation.x.sin() * transform.rotation.y.sin(),
-    //         );
-    //         let result = raycast(transform.translation, direction, 100.0, &world);
-    //         if let Some(result) = result {
-    //             info!("Raycast hit {:?}", result);
-    //         }
-    //     }
-    // }
+    fn raycast(mut gizmos: Gizmos, camera: Query<(&Camera, &Transform)>, world: Res<World>) {
+        for (_camera, transform) in &camera {
+            let direction = transform.forward();
+            let result = fast_voxel_traversal(&world, transform.translation, 100.0, direction);
+            if let Some(result) = result {
+                gizmos.cuboid(
+                    Transform::from_translation(result.0.as_vec3() + Vec3::new(0.5, 0.5, 0.5))
+                        .with_scale(Vec3::splat(1.)),
+                    Color::BLACK,
+                );
+            }
+        }
+    }
 }

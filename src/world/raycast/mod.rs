@@ -4,7 +4,7 @@ use crate::world::voxel::{shape::Volume, Side};
 
 use super::World;
 
-pub fn fast_voxel_traversal(
+pub fn cast(
     world: &World,
     origin: Vec3,
     max_radius: f32,

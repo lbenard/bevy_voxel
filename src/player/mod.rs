@@ -7,15 +7,19 @@ use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
 use bevy_atmosphere::prelude::AtmosphereCamera;
 use bevy_spectator::{Spectator, SpectatorPlugin, SpectatorSettings};
 
-use crate::world::{chunk::loader::ChunkLoaderSource, raycast::fast_voxel_traversal, World};
+use crate::world::chunk::loader::ChunkLoaderSource;
+
+use self::raycast::RaycastPlugin;
+
+mod raycast;
+pub use raycast::Raycast;
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugins(SpectatorPlugin)
+        app.add_plugins((SpectatorPlugin, RaycastPlugin))
             .add_systems(Startup, Self::setup_player)
-            .add_systems(Update, Self::raycast)
             .insert_resource(SpectatorSettings {
                 base_speed: 50.0,
                 alt_speed: 2000.0,
@@ -69,19 +73,5 @@ impl PlayerPlugin {
         });
         #[cfg(feature = "taa")]
         commands.spawn(TemporalAntiAliasBundle::default());
-    }
-
-    fn raycast(mut gizmos: Gizmos, camera: Query<(&Camera, &Transform)>, world: Res<World>) {
-        for (_camera, transform) in &camera {
-            let direction = transform.forward();
-            let result = fast_voxel_traversal(&world, transform.translation, 100.0, direction);
-            if let Some(result) = result {
-                gizmos.cuboid(
-                    Transform::from_translation(result.0.as_vec3() + Vec3::new(0.5, 0.5, 0.5))
-                        .with_scale(Vec3::splat(1.)),
-                    Color::BLACK,
-                );
-            }
-        }
     }
 }

@@ -959,9 +959,10 @@ dependencies = [
 [[package]]
 name = "bevy_spectator"
 version = "0.3.0"
-source = "git+https://github.com/lbenard/bevy_spectator.git?branch=system_set#9a49ece462cbcdf780afc51952c104c1be98e2b5"
+source = "git+https://github.com/lbenard/bevy_spectator.git?branch=master#ea97e4afc9b1912f4db205958f9cdac012b5c507"
 dependencies = [
  "bevy",
+ "bevy_egui",
 ]
 
 [[package]]

@@ -2,20 +2,26 @@ use std::f32::consts::PI;
 
 #[cfg(feature = "atmosphere")]
 use bevy::prelude::Vec3;
-use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
-    prelude::{
-        default, AmbientLight, Camera3d, Color, Commands, Component, DirectionalLight,
-        DirectionalLightBundle, FogSettings, Plugin, PointLight, PointLightBundle, Quat, Query,
-        ReflectResource, Res, ResMut, Resource, Startup, Transform, Update, With, Without,
-    },
-    reflect::Reflect,
-    time::{Time, Timer, TimerMode},
-};
 #[cfg(feature = "atmosphere")]
 use bevy_atmosphere::{
     prelude::{AtmosphereModel, AtmospherePlugin, Nishita},
     system_param::AtmosphereMut,
+};
+
+#[cfg(not(feature = "atmosphere"))]
+use bevy::{
+    core_pipeline::clear_color::ClearColorConfig,
+    prelude::{Camera3d, FogSettings},
+};
+
+use bevy::{
+    prelude::{
+        default, AmbientLight, Color, Commands, Component, DirectionalLight,
+        DirectionalLightBundle, Plugin, PointLight, PointLightBundle, Quat, Query, ReflectResource,
+        Res, ResMut, Resource, Startup, Transform, Update, With, Without,
+    },
+    reflect::Reflect,
+    time::{Time, Timer, TimerMode},
 };
 use bevy_spectator::Spectator;
 
@@ -43,8 +49,8 @@ impl Plugin for EnvironmentPlugin {
         #[cfg(not(feature = "atmosphere"))]
         app.add_systems(Update, Self::update_clear_color);
 
-        // app.add_systems(Startup, Self::setup_player_light)
-        //     .add_systems(Update, Self::update_player_light);
+        app.add_systems(Startup, Self::setup_player_light)
+            .add_systems(Update, Self::update_player_light);
 
         app.insert_resource(CycleTimer(Timer::new(
             bevy::utils::Duration::from_millis(16), // Update our atmosphere every 50ms (in a real game, this would be much slower, but for the sake of an example we use a faster update)
@@ -152,9 +158,9 @@ impl EnvironmentPlugin {
 
             if let Some((mut light_trans, mut directional)) = query.single_mut().into() {
                 light_trans.rotation = Quat::from_rotation_x(-t.sin().atan2(t.cos()));
-                directional.illuminance = (daylight.0.powf(2.0) * 100_000.0).max(10_000.0);
+                directional.illuminance = interpolation::lerp(&0.0, &100_000.0, &daylight.0);
             }
-            ambient_light.brightness = interpolation::lerp(&0.5, &1.0, &daylight.0);
+            ambient_light.brightness = interpolation::lerp(&0.1, &1.0, &daylight.0);
         }
     }
 }

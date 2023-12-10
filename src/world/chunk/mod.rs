@@ -70,12 +70,13 @@ impl Chunk {
                 future::block_on(future::poll_once(&mut generation_task.0))
             {
                 let chunk = world.get_chunk_by_entity(entity).unwrap();
+                let mut lock = chunk.write();
 
                 #[cfg(feature = "debug")]
                 generation_average.add(generation_task.generation_duration);
 
-                chunk.write().state = State::Generated;
-                chunk.write().terrain = Some(generation_task.terrain);
+                lock.state = State::Generated;
+                lock.terrain = Some(generation_task.terrain);
 
                 commands.entity(entity).remove::<tasks::GenerateChunk>();
             }
@@ -103,12 +104,13 @@ impl Chunk {
         for (entity, mut meshing_task) in &mut meshing_tasks.iter_mut() {
             if let Some(meshing_task) = future::block_on(future::poll_once(&mut meshing_task.0)) {
                 let chunk = world.get_chunk_by_entity(entity).unwrap();
+                let mut lock = chunk.write();
                 let mut entity = commands.entity(entity);
 
                 #[cfg(feature = "debug")]
                 meshing_average.add(meshing_task.meshing_duration);
 
-                chunk.write().state = State::Meshed;
+                lock.state = State::Meshed;
                 entity.insert((MaterialMeshBundle {
                     mesh: meshes.add(meshing_task.mesh),
                     material: materials.add(material.clone()),

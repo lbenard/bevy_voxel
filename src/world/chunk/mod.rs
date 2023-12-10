@@ -4,7 +4,7 @@ use futures_lite::future;
 use ndshape::Shape as NdShape;
 use std::{intrinsics::unlikely, time::Duration};
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "debug")]
 use crate::debug::stats::Average;
 
 use self::{
@@ -63,7 +63,7 @@ impl Chunk {
         mut commands: Commands,
         mut generation_tasks: Query<(Entity, &mut tasks::GenerateChunk)>,
         world: Res<World>,
-        #[cfg(debug_assertions)] mut generation_average: ResMut<Average<GenerationDuration>>,
+        #[cfg(feature = "debug")] mut generation_average: ResMut<Average<GenerationDuration>>,
     ) {
         for (entity, mut generation_task) in &mut generation_tasks.iter_mut() {
             if let Some(generation_task) =
@@ -71,7 +71,7 @@ impl Chunk {
             {
                 let chunk = world.get_chunk_by_entity(entity).unwrap();
 
-                #[cfg(debug_assertions)]
+                #[cfg(feature = "debug")]
                 generation_average.add(generation_task.generation_duration);
 
                 chunk.write().state = State::Generated;
@@ -88,7 +88,7 @@ impl Chunk {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<TerrainMaterial>>,
         world: Res<World>,
-        #[cfg(debug_assertions)] mut meshing_average: ResMut<Average<MeshingDuration>>,
+        #[cfg(feature = "debug")] mut meshing_average: ResMut<Average<MeshingDuration>>,
     ) {
         let material = TerrainMaterial {
             base: StandardMaterial {
@@ -105,7 +105,7 @@ impl Chunk {
                 let chunk = world.get_chunk_by_entity(entity).unwrap();
                 let mut entity = commands.entity(entity);
 
-                #[cfg(debug_assertions)]
+                #[cfg(feature = "debug")]
                 meshing_average.add(meshing_task.meshing_duration);
 
                 chunk.write().state = State::Meshed;

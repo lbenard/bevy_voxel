@@ -6,11 +6,11 @@ use bevy::{
     core_pipeline::experimental::taa::TemporalAntiAliasPlugin, prelude::*, window::PresentMode,
 };
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "debug")]
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
-#[cfg(debug_assertions)]
-use debug::DebugPluginBuilder;
+#[cfg(feature = "debug")]
+use debug::plugin::DebugPluginBuilder;
 use environment::EnvironmentPlugin;
 use player::PlayerPlugin;
 use world::{
@@ -18,7 +18,6 @@ use world::{
     WorldPlugin,
 };
 
-#[cfg(debug_assertions)]
 mod debug;
 mod environment;
 mod player;
@@ -58,7 +57,7 @@ fn main() {
         TemporalAntiAliasPlugin,
     ));
 
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "debug")]
     app.add_plugins((
         DebugPluginBuilder::new().debug_playground().build(),
         WorldInspectorPlugin::new(),

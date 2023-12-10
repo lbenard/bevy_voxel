@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use bevy_spectator::SpectatorSystemSet;
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "debug")]
 use super::{GenerationDuration, MeshingDuration};
-#[cfg(debug_assertions)]
+#[cfg(feature = "debug")]
 use crate::debug::stats::Average;
 
 use crate::world::{chunk, Chunk, World, WorldChunk};
@@ -37,7 +37,7 @@ impl Plugin for ChunkLoaderPlugin {
             unload_distance: self.default_unload_distance,
         });
 
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "debug")]
         app.init_resource::<Average<GenerationDuration>>()
             .init_resource::<Average<MeshingDuration>>()
             .add_systems(

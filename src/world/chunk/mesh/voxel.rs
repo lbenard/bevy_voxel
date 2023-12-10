@@ -1,4 +1,4 @@
-use bevy::prelude::{IVec3, UVec3};
+use bevy::prelude::UVec3;
 
 use crate::world::{
     chunk::Terrain,

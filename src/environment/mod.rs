@@ -17,7 +17,6 @@ use bevy_atmosphere::{
     prelude::{AtmosphereModel, AtmospherePlugin, Nishita},
     system_param::AtmosphereMut,
 };
-use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use bevy_spectator::Spectator;
 
 pub struct EnvironmentPlugin;
@@ -52,8 +51,6 @@ impl Plugin for EnvironmentPlugin {
             TimerMode::Repeating,
         )))
         .init_resource::<DaylightCycle>()
-        .register_type::<DaylightCycle>()
-        .add_plugins(ResourceInspectorPlugin::<DaylightCycle>::default())
         .add_systems(Startup, Self::setup_environment)
         .add_systems(Update, (Self::daylight_cycle, Self::update_lights));
     }
@@ -117,6 +114,7 @@ impl EnvironmentPlugin {
         }
     }
 
+    #[cfg(not(feature = "atmosphere"))]
     fn update_clear_color(
         daylight: Res<DaylightCycle>,
         mut camera_3d: Query<(&mut Camera3d,)>,

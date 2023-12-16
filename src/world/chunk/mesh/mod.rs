@@ -126,12 +126,12 @@ impl ChunkMesh {
         triangles: &Vec<[UVec3; 3]>,
         material: &Material,
     ) {
-        let mut rng = rand::thread_rng();
-        let randomize_offset = Vec3::new(
-            rng.gen_range(-0.04..0.04),
-            rng.gen_range(-0.04..0.04),
-            rng.gen_range(-0.04..0.04),
-        );
+        // let mut rng = rand::thread_rng();
+        // let randomize_offset = Vec3::new(
+        //     rng.gen_range(-0.04..0.04),
+        //     rng.gen_range(-0.04..0.04),
+        //     rng.gen_range(-0.04..0.04),
+        // );
 
         for tri in triangles {
             let tri_vertices = tri
@@ -145,7 +145,8 @@ impl ChunkMesh {
             self.vertices.append(&mut tri_vertices_array);
 
             let normal = Self::normal(tri_vertices[0], tri_vertices[2], tri_vertices[1]);
-            let normal = (normal + randomize_offset).to_array();
+            // let normal = (normal + randomize_offset).to_array();
+            let normal = (normal).to_array();
 
             // All three vertices should share the same normal because that's how lowpoly works
             self.normals.append(&mut vec![normal, normal, normal]);

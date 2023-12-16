@@ -7,19 +7,24 @@ use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*};
 use bevy_atmosphere::prelude::AtmosphereCamera;
 use bevy_spectator::{Spectator, SpectatorPlugin, SpectatorSettings};
 
-use crate::world::chunk::loader::ChunkLoaderSource;
+use crate::world::chunk::loader::{ChunkLoaderSource, RenderDistance};
 
-use self::raycast::RaycastPlugin;
+use self::{build::BuildPlugin, raycast::RaycastPlugin};
 
+mod build;
 mod raycast;
 pub use raycast::Raycast;
+
+#[derive(Component)]
+pub struct Player;
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugins((SpectatorPlugin, RaycastPlugin))
+        app.add_plugins((SpectatorPlugin, RaycastPlugin, BuildPlugin))
             .add_systems(Startup, Self::setup_player)
+            .add_systems(Update, Self::update_fog)
             .insert_resource(SpectatorSettings {
                 base_speed: 50.0,
                 alt_speed: 2000.0,
@@ -32,6 +37,8 @@ impl Plugin for PlayerPlugin {
 impl PlayerPlugin {
     fn setup_player(mut commands: Commands) {
         commands.spawn((
+            Player,
+            Name::new("Player"),
             Camera3dBundle {
                 camera: Camera {
                     hdr: true,
@@ -73,5 +80,17 @@ impl PlayerPlugin {
         });
         #[cfg(feature = "taa")]
         commands.spawn(TemporalAntiAliasBundle::default());
+    }
+
+    fn update_fog(
+        mut fogs: Query<(&mut FogSettings,), With<Player>>,
+        render_distance: Res<RenderDistance>,
+    ) {
+        for (mut fog,) in fogs.iter_mut() {
+            fog.falloff = FogFalloff::Linear {
+                end: render_distance.unload_distance as f32 / 1.4,
+                start: render_distance.load_distance as f32 / 1.4,
+            }
+        }
     }
 }

@@ -1,8 +1,8 @@
-use std::time::Instant;
+use std::{marker::PhantomData, time::Instant};
 
 use bevy::{
     prelude::*,
-    tasks::{AsyncComputeTaskPool, Task},
+    tasks::{AsyncComputeTaskPool, ComputeTaskPool, Task, TaskPool},
 };
 
 use super::{
@@ -15,14 +15,33 @@ use super::{
 };
 use crate::world::{chunk, World, WorldChunk};
 
-pub struct GenerateChunkResult {
+pub struct AsyncGenerateChunkResult {
     pub chunk: WorldChunk,
     pub terrain: chunk::Terrain,
     pub generation_duration: GenerationDuration,
 }
 
 #[derive(Component)]
-pub struct GenerateChunk(pub Task<GenerateChunkResult>);
+pub struct AsyncGenerateChunk(pub Task<AsyncGenerateChunkResult>);
+
+pub trait BevyPool {
+    fn get<'a>() -> &'a TaskPool;
+}
+
+pub struct ComputePool;
+pub struct AsyncPool;
+
+impl BevyPool for ComputePool {
+    fn get<'a>() -> &'a TaskPool {
+        &**ComputeTaskPool::get()
+    }
+}
+
+impl BevyPool for AsyncPool {
+    fn get<'a>() -> &'a TaskPool {
+        &**AsyncComputeTaskPool::get()
+    }
+}
 
 pub struct MeshChunkResult {
     pub absolute_position: IVec3,
@@ -31,12 +50,18 @@ pub struct MeshChunkResult {
 }
 
 #[derive(Component)]
-pub struct MeshChunk(pub Task<MeshChunkResult>);
+pub struct MeshChunk<T>(pub Task<MeshChunkResult>, PhantomData<T>);
+
+impl<T> MeshChunk<T> {
+    pub fn from_task(task: Task<MeshChunkResult>) -> Self {
+        Self(task, PhantomData)
+    }
+}
 
 pub fn new_generate_chunk_task(
     chunk: WorldChunk,
     chunk_coordinates: chunk::Coordinates,
-) -> Task<GenerateChunkResult> {
+) -> Task<AsyncGenerateChunkResult> {
     let thread_pool = AsyncComputeTaskPool::get();
 
     thread_pool.spawn(async move {
@@ -54,7 +79,7 @@ pub fn new_generate_chunk_task(
         let terrain = materializator.materialize(&grid);
 
         let generation_duration = generation_timer.elapsed();
-        GenerateChunkResult {
+        AsyncGenerateChunkResult {
             chunk,
             terrain,
             generation_duration: generation_duration.into(),
@@ -62,14 +87,12 @@ pub fn new_generate_chunk_task(
     })
 }
 
-pub fn new_mesh_chunk_task(
+pub fn new_mesh_chunk_task<T: BevyPool + Send + 'static>(
     chunk: WorldChunk,
     adjacent_chunks: AdjacentChunks,
     chunk_coordinates: chunk::Coordinates,
 ) -> Task<MeshChunkResult> {
-    let thread_pool = AsyncComputeTaskPool::get();
-
-    thread_pool.spawn(async move {
+    T::get().spawn(async move {
         let absolute_position = IVec3::new(
             chunk_coordinates.0.x * CHUNK_SIZE.x as i32,
             chunk_coordinates.0.y * CHUNK_SIZE.y as i32,

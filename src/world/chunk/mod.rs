@@ -10,6 +10,7 @@ use crate::debug::stats::Average;
 use self::{
     generator::Grid,
     material::{StandardMaterialExtension, TerrainMaterial},
+    tasks::{AsyncPool, ComputePool},
 };
 
 use super::{
@@ -42,13 +43,13 @@ pub struct Chunk {
     pub absolute_position: IVec3,
     pub grid: Option<Grid>,
     pub terrain: Option<Terrain>,
+    pub dirty: bool,
 }
 
 impl Chunk {
-    #[allow(dead_code)]
     pub fn get_voxel(&self, relative_position: UVec3) -> Option<Voxel> {
         if let Some(terrain) = &self.terrain {
-            let voxel_descriptor = terrain.voxel_at_pos(relative_position.as_ivec3())?;
+            let Some(voxel_descriptor) = terrain.voxel_at_pos(relative_position.as_ivec3()) else { return None };
             Some(Voxel {
                 position: self.absolute_position + relative_position.as_ivec3(),
                 shape: voxel_descriptor.shape,
@@ -59,9 +60,13 @@ impl Chunk {
         }
     }
 
+    pub fn get_relative_position(&self, position: IVec3) -> UVec3 {
+        (position - self.coordinates.0 * CHUNK_SIZE.as_ivec3()).as_uvec3()
+    }
+
     fn handle_generation_tasks(
         mut commands: Commands,
-        mut generation_tasks: Query<(Entity, &mut tasks::GenerateChunk)>,
+        mut generation_tasks: Query<(Entity, &mut tasks::AsyncGenerateChunk)>,
         world: Res<World>,
         #[cfg(feature = "debug")] mut generation_average: ResMut<Average<GenerationDuration>>,
     ) {
@@ -69,7 +74,7 @@ impl Chunk {
             if let Some(generation_task) =
                 future::block_on(future::poll_once(&mut generation_task.0))
             {
-                let chunk = world.get_chunk_by_entity(entity).unwrap();
+                let Some(chunk) = world.get_chunk_by_entity(entity) else { continue };
                 let mut lock = chunk.write();
 
                 #[cfg(feature = "debug")]
@@ -78,14 +83,17 @@ impl Chunk {
                 lock.state = State::Generated;
                 lock.terrain = Some(generation_task.terrain);
 
-                commands.entity(entity).remove::<tasks::GenerateChunk>();
+                commands
+                    .entity(entity)
+                    .remove::<tasks::AsyncGenerateChunk>();
             }
         }
     }
 
     fn handle_meshing_tasks(
         mut commands: Commands,
-        mut meshing_tasks: Query<(Entity, &mut tasks::MeshChunk)>,
+        mut compute_meshing_tasks: Query<(Entity, &mut tasks::MeshChunk<ComputePool>)>,
+        mut async_meshing_tasks: Query<(Entity, &mut tasks::MeshChunk<AsyncPool>)>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<TerrainMaterial>>,
         world: Res<World>,
@@ -101,9 +109,9 @@ impl Chunk {
             extension: StandardMaterialExtension {},
         };
 
-        for (entity, mut meshing_task) in &mut meshing_tasks.iter_mut() {
+        for (entity, mut meshing_task) in &mut async_meshing_tasks.iter_mut() {
             if let Some(meshing_task) = future::block_on(future::poll_once(&mut meshing_task.0)) {
-                let chunk = world.get_chunk_by_entity(entity).unwrap();
+                let Some(chunk) = world.get_chunk_by_entity(entity) else { continue };
                 let mut lock = chunk.write();
                 let mut entity = commands.entity(entity);
 
@@ -111,6 +119,7 @@ impl Chunk {
                 meshing_average.add(meshing_task.meshing_duration);
 
                 lock.state = State::Meshed;
+                lock.dirty = false;
                 entity.insert((MaterialMeshBundle {
                     mesh: meshes.add(meshing_task.mesh),
                     material: materials.add(material.clone()),
@@ -121,7 +130,31 @@ impl Chunk {
                     ),
                     ..default()
                 },));
-                entity.remove::<tasks::MeshChunk>();
+                entity.remove::<tasks::MeshChunk<AsyncPool>>();
+            }
+        }
+        for (entity, mut meshing_task) in &mut compute_meshing_tasks.iter_mut() {
+            if let Some(meshing_task) = future::block_on(future::poll_once(&mut meshing_task.0)) {
+                let Some(chunk) = world.get_chunk_by_entity(entity) else { continue };
+                let mut lock = chunk.write();
+                let mut entity = commands.entity(entity);
+
+                #[cfg(feature = "debug")]
+                meshing_average.add(meshing_task.meshing_duration);
+
+                lock.state = State::Meshed;
+                lock.dirty = false;
+                entity.insert((MaterialMeshBundle {
+                    mesh: meshes.add(meshing_task.mesh),
+                    material: materials.add(material.clone()),
+                    transform: Transform::from_xyz(
+                        meshing_task.absolute_position.x as f32,
+                        meshing_task.absolute_position.y as f32,
+                        meshing_task.absolute_position.z as f32,
+                    ),
+                    ..default()
+                },));
+                entity.remove::<tasks::MeshChunk<ComputePool>>();
             }
         }
     }
@@ -130,7 +163,7 @@ impl Chunk {
 #[derive(Component)]
 pub struct Marker;
 
-#[derive(Component, PartialEq, Clone, Copy, Eq, Hash, Add)]
+#[derive(Component, PartialEq, Clone, Copy, Eq, Hash, Add, Debug)]
 pub struct Coordinates(pub IVec3);
 
 /// Describe the chunk loading state.
@@ -152,10 +185,22 @@ pub struct Terrain {
 }
 
 impl Terrain {
-    pub fn voxel_at_pos(&self, pos: IVec3) -> Option<VoxelDescriptor> {
+    pub fn voxel_at_pos(&self, pos: IVec3) -> &Option<VoxelDescriptor> {
+        if unlikely(pos.cmplt(IVec3::ZERO).any() || pos.cmpge(CHUNK_SIZE.as_ivec3()).any()) {
+            return &None;
+        }
+        self.voxels
+            .get(self.shape.linearize(pos.as_uvec3().to_array()) as usize)
+            .unwrap()
+    }
+
+    pub fn voxel_at_pos_mut(&mut self, pos: IVec3) -> Option<&mut VoxelDescriptor> {
         if unlikely(pos.cmplt(IVec3::ZERO).any() || pos.cmpge(CHUNK_SIZE.as_ivec3()).any()) {
             return None;
         }
-        self.voxels[self.shape.linearize(pos.as_uvec3().to_array()) as usize]
+        self.voxels
+            .get_mut(self.shape.linearize(pos.as_uvec3().to_array()) as usize)
+            .unwrap()
+            .as_mut()
     }
 }

@@ -4,13 +4,14 @@ use bevy_spectator::SpectatorSystemSet;
 
 use crate::world::raycast::cast;
 
+#[derive(Clone, Copy)]
 pub struct RaycastResult {
-    position: IVec3,
+    pub position: IVec3,
 }
 
 #[derive(Resource, Default)]
 pub struct Raycast {
-    result: Option<RaycastResult>,
+    pub result: Option<RaycastResult>,
 }
 
 pub struct RaycastPlugin;

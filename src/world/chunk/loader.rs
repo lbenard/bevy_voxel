@@ -1,14 +1,18 @@
 use bevy::prelude::*;
-use bevy_spectator::SpectatorSystemSet;
 
 #[cfg(feature = "debug")]
 use super::{GenerationDuration, MeshingDuration};
 #[cfg(feature = "debug")]
 use crate::debug::stats::Average;
 
-use crate::world::{chunk, Chunk, World, WorldChunk};
+use crate::world::{
+    chunk, Chunk, World, WorldChunk, WorldSimulationSystemSet, WorldTasksSystemSet,
+};
 
-use super::{tasks, State, CHUNK_SIZE};
+use super::{
+    tasks::{self, AsyncPool, ComputePool},
+    State, CHUNK_LENGTH, CHUNK_SIZE,
+};
 
 pub struct ChunkLoaderPlugin {
     default_load_distance: u32,
@@ -20,16 +24,14 @@ impl Plugin for ChunkLoaderPlugin {
         app.add_systems(
             Update,
             (
-                (
-                    Self::load_chunks,
-                    Chunk::handle_generation_tasks,
-                    Self::mesh_chunks,
-                    Chunk::handle_meshing_tasks,
-                    Self::unload_chunks,
-                )
+                (Self::load_chunks, Self::unload_chunks, Self::mesh_chunks)
                     .chain()
-                    .after(SpectatorSystemSet),
-                // Self::set_images_to_nearest,
+                    .in_set(WorldSimulationSystemSet),
+                (Self::mesh_dirty_chunks)
+                    .after(WorldSimulationSystemSet)
+                    .before(WorldTasksSystemSet),
+                (Chunk::handle_generation_tasks, Chunk::handle_meshing_tasks)
+                    .in_set(WorldTasksSystemSet),
             ),
         )
         .insert_resource(RenderDistance {
@@ -64,7 +66,7 @@ impl ChunkLoaderPlugin {
         render_distance: Res<RenderDistance>,
         mut world: ResMut<World>,
     ) {
-        let load_distance = render_distance.load_distance;
+        let load_distance = render_distance.load_distance / CHUNK_LENGTH;
         let Ok((source_transform, _)) = source.get_single() else { return };
         let mut coordinates =
             Self::chunk_coordinates_within_range(source_transform.translation, load_distance);
@@ -83,15 +85,15 @@ impl ChunkLoaderPlugin {
                 world.spawn_chunk(chunk_entity.id(), chunk_coordinates);
                 let chunk = world.get_chunk(chunk_coordinates).unwrap().clone();
                 let task = chunk::tasks::new_generate_chunk_task(chunk, chunk_coordinates);
-                chunk_entity.insert(chunk::tasks::GenerateChunk(task));
+                chunk_entity.insert(chunk::tasks::AsyncGenerateChunk(task));
             }
         }
     }
 
     fn mesh_chunks(
         mut commands: Commands,
-        queued_chunks: Query<(Entity, With<tasks::MeshChunk>)>,
-        world: Res<World>,
+        queued_chunks: Query<(Entity, With<tasks::MeshChunk<AsyncPool>>)>,
+        world: Res<crate::world::World>,
     ) {
         let queued_chunks_entities = queued_chunks.iter().map(|c| c.0).collect::<Vec<Entity>>();
         let generated_chunks = world
@@ -103,17 +105,16 @@ impl ChunkLoaderPlugin {
             .collect::<Vec<&WorldChunk>>();
 
         for chunk in chunks_to_mesh {
-            let adjacent_chunks = world.get_adjacent_chunks(chunk.clone());
-            if let Ok(adjacent_chunks) = adjacent_chunks {
-                let task = tasks::new_mesh_chunk_task(
-                    chunk.clone(),
-                    adjacent_chunks,
-                    chunk.read().coordinates,
-                );
-                commands
-                    .entity(chunk.read().entity)
-                    .insert(tasks::MeshChunk(task));
-            }
+            let Ok(adjacent_chunks) = world.get_adjacent_chunks(chunk.clone()) else { continue };
+
+            let task = tasks::new_mesh_chunk_task::<AsyncPool>(
+                chunk.clone(),
+                adjacent_chunks,
+                chunk.read().coordinates,
+            );
+            commands
+                .entity(chunk.read().entity)
+                .insert(tasks::MeshChunk::<AsyncPool>::from_task(task));
         }
     }
 
@@ -123,7 +124,7 @@ impl ChunkLoaderPlugin {
         render_distance: Res<RenderDistance>,
         mut world: ResMut<World>,
     ) {
-        let unload_distance = render_distance.unload_distance;
+        let unload_distance = render_distance.unload_distance / CHUNK_LENGTH;
         let Ok((source_transform, _)) = source.get_single() else { return };
         let coordinates =
             Self::chunk_coordinates_within_range(source_transform.translation, unload_distance);
@@ -139,21 +140,27 @@ impl ChunkLoaderPlugin {
         }
     }
 
-    // fn set_images_to_nearest(
-    //     mut ev_asset: EventReader<AssetEvent<Image>>,
-    //     mut assets: ResMut<Assets<Image>>,
-    // ) {
-    //     for ev in ev_asset.iter() {
-    //         match ev {
-    //             AssetEvent::Created { handle } => {
-    //                 if let Some(image) = assets.get_mut(handle) {
-    //                     image.sampler_descriptor = ImageSampler::nearest();
-    //                 }
-    //             }
-    //             _ => {}
-    //         }
-    //     }
-    // }
+    fn mesh_dirty_chunks(mut commands: Commands, world: Res<crate::world::World>) {
+        let dirty_chunks = world
+            .chunks
+            .values()
+            .filter(|chunk| chunk.read().dirty)
+            .collect::<Vec<&WorldChunk>>();
+
+        for chunk in dirty_chunks {
+            chunk.write().dirty = false;
+
+            let Ok(adjacent_chunks) = world.get_adjacent_chunks(chunk.clone()) else { continue };
+            let task = tasks::new_mesh_chunk_task::<AsyncPool>(
+                chunk.clone(),
+                adjacent_chunks,
+                chunk.read().coordinates,
+            );
+            commands
+                .entity(chunk.read().entity)
+                .insert(tasks::MeshChunk::<AsyncPool>::from_task(task));
+        }
+    }
 
     fn chunk_coordinates_within_range(source: Vec3, radius: u32) -> Vec<chunk::Coordinates> {
         let mut chunks = Vec::new();

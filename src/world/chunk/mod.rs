@@ -194,13 +194,9 @@ impl Terrain {
             .unwrap()
     }
 
-    pub fn voxel_at_pos_mut(&mut self, pos: IVec3) -> Option<&mut VoxelDescriptor> {
-        if unlikely(pos.cmplt(IVec3::ZERO).any() || pos.cmpge(CHUNK_SIZE.as_ivec3()).any()) {
-            return None;
-        }
+    pub fn voxel_at_pos_mut(&mut self, pos: IVec3) -> &mut Option<VoxelDescriptor> {
         self.voxels
             .get_mut(self.shape.linearize(pos.as_uvec3().to_array()) as usize)
             .unwrap()
-            .as_mut()
     }
 }

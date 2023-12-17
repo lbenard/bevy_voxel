@@ -1,8 +1,9 @@
 use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 
-use crate::world::{
-    voxel::shape::{Shape, Volume},
-    World,
+use crate::world::voxel::{
+    material::*,
+    shape::{Shape, Volume},
+    VoxelDescriptor,
 };
 
 use super::Raycast;
@@ -30,7 +31,6 @@ impl BuildPlugin {
             let relative_position = chunk_lock.get_relative_position(result.position);
             let Some(ref mut terrain) = chunk_lock.terrain else { return };
             let Some(voxel) = terrain.voxel_at_pos_mut(relative_position.as_ivec3()) else { return };
-            info!("click {:?}", voxel);
             voxel.shape.volume = Volume::ZeroSixth;
         }
         chunk.write().dirty = true;
@@ -43,9 +43,12 @@ impl BuildPlugin {
             let mut chunk_lock = chunk.write();
             let relative_position = chunk_lock.get_relative_position(result.position);
             let Some(ref mut terrain) = chunk_lock.terrain else { return };
-            let Some(voxel) = terrain.voxel_at_pos_mut(relative_position.as_ivec3()) else { return };
-            info!("click {:?}", voxel);
-            voxel.shape.volume = Volume::SixSixth;
+            let voxel =
+                terrain.voxel_at_pos_mut(relative_position.as_ivec3() + IVec3::new(0, 1, 0));
+            *voxel = Some(VoxelDescriptor {
+                shape: Shape::FULL,
+                material: GRASS,
+            });
         }
         chunk.write().dirty = true;
     }

@@ -11,25 +11,23 @@ overflow-checks = false
 
 [dependencies]
 bevy = { version = "0.12.0", features = ["wayland"] }
-bevy-inspector-egui = "0.21"
+bevy_egui = { version = "0.23", optional = true }
+bevy-inspector-egui = { version = "0.21", optional = true }
 bevy_atmosphere = { version = "0.8", optional = true }
 bevy_spectator = { git = "https://github.com/lbenard/bevy_spectator.git", branch = "master" }
-bevy_egui = "0.23"
-# bevy_mod_raycast = "0.8"
-egui_dock = "0.4"
-egui-gizmo = "0.10"
+# egui_dock = "0.4"
+# egui-gizmo = "0.10"
 noise = "0.8.2"
 rayon = "1.5"
 interpolation = "*"
 futures-lite = "1.11.3"
 rand = "0.8.5"
-bitflags = "1.2"
 ndshape = "0.3.0"
 parking_lot = "0.12"
 derive_more = { git = "https://github.com/JelteF/derive_more.git", branch = "master", features = ["add", "mul", "from", "into", "debug"] }
 
 [features]
-debug = ["bevy_spectator/egui"]
+debug = ["dep:bevy_egui", "dep:bevy-inspector-egui", "bevy_spectator/egui"]
 atmosphere = ["dep:bevy_atmosphere"]
 ssao = []
 taa = []

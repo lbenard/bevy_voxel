@@ -1,10 +1,10 @@
 #![feature(lazy_cell)]
 #![feature(core_intrinsics)]
 
-use bevy::{
-    core::TaskPoolThreadAssignmentPolicy,
-    core_pipeline::experimental::taa::TemporalAntiAliasPlugin, prelude::*, window::PresentMode,
-};
+use bevy::{core::TaskPoolThreadAssignmentPolicy, prelude::*, window::PresentMode};
+
+#[cfg(feature = "taa")]
+use bevy::core_pipeline::experimental::taa::TemporalAntiAliasPlugin;
 
 #[cfg(feature = "debug")]
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -54,6 +54,7 @@ fn main() {
         MaterialPlugin::<TerrainMaterial>::default(),
         PlayerPlugin,
         EnvironmentPlugin,
+        #[cfg(feature = "taa")]
         TemporalAntiAliasPlugin,
     ));
 
